@@ -16,6 +16,7 @@ public sealed class CodexCliClient(
     {
         try
         {
+            var displayPath = CliExecutableResolver.TryResolve(_options.ExecutablePath)?.Path ?? _options.ExecutablePath;
             var versionInfo = CreateStartInfo(_options.ExecutablePath, _commands.BuildVersionArguments(), Directory.GetCurrentDirectory());
             var versionRun = await processRunner.RunAsync(versionInfo, standardInput: null, stdoutLine: null, stderrLine: null, cancellationToken);
             var version = (versionRun.Stdout + " " + versionRun.Stderr).Trim().ReplaceLineEndings(" ").Trim();
@@ -23,10 +24,10 @@ public sealed class CodexCliClient(
             {
                 return new CodexAvailability
                 {
-                    IsInstalled = false,
-                    IsLoggedIn = false,
-                    ExecutablePath = _options.ExecutablePath,
-                    Error = $"'{_options.ExecutablePath} --version' exited {versionRun.ExitCode}."
+                    IsInstalled = true,
+                    IsLoggedIn = null,
+                    ExecutablePath = displayPath,
+                    Error = $"'{displayPath} --version' exited {versionRun.ExitCode}."
                 };
             }
 
@@ -38,7 +39,7 @@ public sealed class CodexCliClient(
                 IsInstalled = true,
                 IsLoggedIn = loggedIn,
                 Version = string.IsNullOrWhiteSpace(version) ? null : version,
-                ExecutablePath = _options.ExecutablePath,
+                ExecutablePath = displayPath,
                 Error = loggedIn
                     ? null
                     : $"Run `{CodexAvailability.LoginCommandText}` once with a ChatGPT subscription. Do not set OPENAI_API_KEY for Codex."

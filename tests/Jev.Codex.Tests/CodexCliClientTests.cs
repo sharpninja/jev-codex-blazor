@@ -95,6 +95,18 @@ public sealed class CodexCliClientTests
     }
 
     [Fact]
+    public async Task ProbeAsync_does_not_report_missing_when_version_exits_nonzero()
+    {
+        var runner = new ScriptedProcessRunner(_ => new ProcessRunResult { ExitCode = 2, Stderr = "usage: codex" });
+        var availability = await CreateClient(runner).ProbeAsync();
+        Assert.True(availability.IsInstalled);
+        Assert.Null(availability.IsLoggedIn);
+        Assert.Contains("exited 2", availability.FormatForAgent(), StringComparison.Ordinal);
+        Assert.Contains("probe command failed", availability.FormatForAgent(), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("not available", availability.FormatForAgent(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task ProbeAsync_reports_installed_but_not_logged_in()
     {
         var runner = new ScriptedProcessRunner(start =>

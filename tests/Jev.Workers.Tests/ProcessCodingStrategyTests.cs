@@ -155,6 +155,58 @@ public sealed class ProcessCodingStrategyTests
     }
 
     [Fact]
+    public async Task Cline_probe_uses_version_then_falls_back_to_dashed_version()
+    {
+        var calls = new List<string>();
+        var runner = new ScriptedRunner(start =>
+        {
+            var args = string.Join(' ', start.ArgumentList);
+            calls.Add(args);
+            if (args == "version")
+            {
+                return new CliProcessRunResult { ExitCode = 1, Stderr = "unknown option" };
+            }
+
+            if (args == "--version")
+            {
+                return new CliProcessRunResult { ExitCode = 0, Stdout = "cline 1.2.3" };
+            }
+
+            return new CliProcessRunResult { ExitCode = 1 };
+        });
+        var strategy = new ClineCodingStrategy(
+            Options.Create(new ClineCliOptions { ExecutablePath = "cline" }),
+            runner,
+            NullLogger<ClineCodingStrategy>.Instance);
+
+        var availability = await strategy.ProbeAsync();
+
+        Assert.True(availability.IsInstalled);
+        Assert.True(availability.IsReady);
+        Assert.Contains("1.2.3", availability.Version);
+        Assert.Equal(["version", "--version"], calls);
+        Assert.DoesNotContain("not installed", availability.FormatForAgent(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Cline_probe_does_not_report_missing_when_version_exits_nonzero()
+    {
+        var runner = new ScriptedRunner(_ => new CliProcessRunResult { ExitCode = 2, Stderr = "usage: cline" });
+        var strategy = new ClineCodingStrategy(
+            Options.Create(new ClineCliOptions { ExecutablePath = "cline" }),
+            runner,
+            NullLogger<ClineCodingStrategy>.Instance);
+
+        var availability = await strategy.ProbeAsync();
+
+        Assert.True(availability.IsInstalled);
+        Assert.False(availability.IsReady);
+        Assert.Contains("exited 2", availability.FormatForAgent(), StringComparison.Ordinal);
+        Assert.Contains("probe command failed", availability.FormatForAgent(), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("not installed", availability.FormatForAgent(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Cline_run_degrades_when_binary_missing()
     {
         var runner = new ScriptedRunner(_ => throw new CliExecutableNotFoundException("cline"));

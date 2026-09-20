@@ -66,7 +66,7 @@ Each worker authenticates with a **vendor subscription login**. This repo does n
 | **GrokBuild** | `grok` | `grok -p "<prompt>" --output-format streaming-json --always-approve --cwd <dir>` | [Grok Build](https://docs.x.ai/build/cli/reference): `grok login` (SuperGrok / X Premium+). Headless: `grok login --device-auth`. | No public status command — run `grok login` once. |
 | **Cline** | `cline` | `cline --json --yolo --auto-approve true --cwd <dir> --timeout <sec> "<prompt>"` | [Cline CLI](https://docs.cline.bot/getting-started/authorizing-with-cline): `cline auth` (or `cline a`) and choose **Sign in with Cline** / ClinePass. Default provider is `cline` (subscription). | No public status command — run `cline auth` once; `cline config` inspects the saved session. |
 
-Probes first run `--version`. When the CLI exposes a login-status command, a failed status is reported as **not logged in** (separate from **not installed**). WASM/Android skip process spawn and return **not supported**. No fake package versions are invented.
+Probes first run a version command: **Cline** uses `cline version` (then `--version` / `-V`); Codex, Claude, and Grok Build use `--version`. Jev resolves the CLI the way a terminal does — `PATH`, Windows `PATHEXT` shims (`.exe`, `.cmd`, `.bat`, `.ps1`), and common npm global bins (`%AppData%\npm`, `npm bin -g`). A missing file is **not installed**. If the process starts but the version command fails, that is **installed but the probe failed**, not a false "not installed". When the CLI exposes a login-status command, a failed status is **not logged in**. WASM/Android skip process spawn and return **not supported**. No fake package versions are invented.
 
 ## Prerequisites
 
@@ -99,7 +99,7 @@ cline auth            # Cline / ClinePass
 | --- | --- |
 | `Jev:CodingStrategy` / `JEV_CODING_STRATEGY` | `Codex` (default), `Claude`, `GrokBuild`, or `Cline` |
 | `OPENAI_API_KEY` / `OPENAI_MODEL` | Optional Jev **orchestration** LLM only |
-| `CODEX_EXECUTABLE` / `CLAUDE_EXECUTABLE` / `GROK_EXECUTABLE` / `CLINE_EXECUTABLE` | Optional binary overrides |
+| `CODEX_EXECUTABLE` / `CLAUDE_EXECUTABLE` / `GROK_EXECUTABLE` / `CLINE_EXECUTABLE` | Optional binary overrides (`Codex:ExecutablePath`, `Claude:ExecutablePath`, `GrokBuild:ExecutablePath`, `Cline:ExecutablePath`). Prefer auto-resolve; set these only when PATH / npm-global search cannot find the CLI (for example a custom install). |
 
 ## Run each host
 

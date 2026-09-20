@@ -26,6 +26,9 @@ public sealed class ClineCodingStrategy(
 
     protected override IReadOnlyList<string> BuildVersionArguments() => _commands.BuildVersionArguments();
 
+    protected override IReadOnlyList<IReadOnlyList<string>> BuildVersionArgumentCandidates()
+        => _commands.BuildVersionArgumentCandidates();
+
     protected override IReadOnlyList<string>? BuildAuthStatusArguments() => _commands.BuildAuthStatusArguments();
 
     protected override IReadOnlyList<string> BuildExecArguments(CodingTaskRequest request, string workingDirectory)
