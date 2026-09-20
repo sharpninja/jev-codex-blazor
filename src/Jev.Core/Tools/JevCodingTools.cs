@@ -1,10 +1,14 @@
 using System.ComponentModel;
 using Jev.Core.Runtime;
 using Jev.Workers;
+using Jev.Workers.Process;
 
 namespace Jev.Core.Tools;
 
-public sealed class JevCodingTools(ICodingStrategySelector selector, IJevRunStatus status)
+public sealed class JevCodingTools(
+    ICodingStrategySelector selector,
+    IJevRunStatus status,
+    ICliTranscript? transcript = null)
 {
     public const string ProbeName = "probe_coding_worker";
     public const string RunCodingTaskName = "run_coding_task";
@@ -15,12 +19,18 @@ public sealed class JevCodingTools(ICodingStrategySelector selector, IJevRunStat
     {
         var worker = selector.Active;
         status.SetPhase(JevPhase.RunningWorker, $"Probing {worker.DisplayName}");
+        transcript?.Append(CliTranscriptChannel.System, $"Probing {worker.DisplayName}");
         var availability = await worker.ProbeAsync(cancellationToken);
         status.SetWorkerAvailability(
             availability.IsInstalled,
             availability.Version,
             availability.IsLoggedIn,
             availability.LoginCommand);
+        if (!availability.IsSupported || !string.IsNullOrWhiteSpace(availability.Error))
+        {
+            transcript?.Append(CliTranscriptChannel.System, availability.Error ?? availability.FormatForAgent());
+        }
+
         return availability.FormatForAgent();
     }
 
@@ -76,7 +86,15 @@ public sealed class JevCodingTools(ICodingStrategySelector selector, IJevRunStat
                 Sandbox = sandbox,
                 SessionId = sessionId
             },
-            new Progress<CodingProgress>(status.ReportWorker),
+            new ImmediateProgress<CodingProgress>(item =>
+            {
+                if (item.Phase is not (CodingProgress.Input or CodingProgress.Stdout or CodingProgress.Stderr))
+                {
+                    status.ReportWorker(item);
+                }
+
+                transcript?.Append(item);
+            }),
             cancellationToken);
 
         if (!result.Succeeded)

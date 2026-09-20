@@ -31,6 +31,7 @@ public static class JevServiceCollectionExtensions
 
         services.AddSingleton<JevPersona>();
         services.AddScoped<IJevRunStatus, JevRunStatus>();
+        services.AddScoped<ICliTranscript, CliTranscript>();
         services.AddScoped<JevCodingTools>();
         services.AddScoped<JevAgentFactory>();
         services.AddScoped(sp => sp.GetRequiredService<JevAgentFactory>().Create());

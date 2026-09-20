@@ -9,6 +9,7 @@ public sealed class CodexProcessRunner : ICodexProcessRunner
         ProcessStartInfo startInfo,
         string? standardInput,
         IProgress<string>? stdoutLine,
+        IProgress<string>? stderrLine,
         CancellationToken cancellationToken)
     {
         startInfo.UseShellExecute = false;
@@ -36,7 +37,7 @@ public sealed class CodexProcessRunner : ICodexProcessRunner
         var stderr = new StringBuilder();
 
         var stdoutTask = ReadLinesAsync(process.StandardOutput, stdout, stdoutLine, cancellationToken);
-        var stderrTask = ReadToEndAsync(process.StandardError, stderr, cancellationToken);
+        var stderrTask = ReadLinesAsync(process.StandardError, stderr, stderrLine, cancellationToken);
 
         if (!string.IsNullOrEmpty(standardInput))
         {
@@ -73,14 +74,5 @@ public sealed class CodexProcessRunner : ICodexProcessRunner
             buffer.AppendLine(line);
             progress?.Report(line);
         }
-    }
-
-    private static async Task ReadToEndAsync(
-        StreamReader reader,
-        StringBuilder buffer,
-        CancellationToken cancellationToken)
-    {
-        var text = await reader.ReadToEndAsync(cancellationToken);
-        buffer.Append(text);
     }
 }

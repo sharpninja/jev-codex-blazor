@@ -17,7 +17,7 @@ public sealed class CodexCliClient(
         try
         {
             var versionInfo = CreateStartInfo(_options.ExecutablePath, _commands.BuildVersionArguments(), Directory.GetCurrentDirectory());
-            var versionRun = await processRunner.RunAsync(versionInfo, standardInput: null, stdoutLine: null, cancellationToken);
+            var versionRun = await processRunner.RunAsync(versionInfo, standardInput: null, stdoutLine: null, stderrLine: null, cancellationToken);
             var version = (versionRun.Stdout + " " + versionRun.Stderr).Trim().ReplaceLineEndings(" ").Trim();
             if (versionRun.ExitCode != 0)
             {
@@ -31,7 +31,7 @@ public sealed class CodexCliClient(
             }
 
             var loginInfo = CreateStartInfo(_options.ExecutablePath, _commands.BuildLoginStatusArguments(), Directory.GetCurrentDirectory());
-            var loginRun = await processRunner.RunAsync(loginInfo, standardInput: null, stdoutLine: null, cancellationToken);
+            var loginRun = await processRunner.RunAsync(loginInfo, standardInput: null, stdoutLine: null, stderrLine: null, cancellationToken);
             var loggedIn = loginRun.ExitCode == 0;
             return new CodexAvailability
             {
@@ -69,6 +69,8 @@ public sealed class CodexCliClient(
         var events = new List<CodexJsonEvent>();
 
         progress?.Report(new CodexProgress("starting", $"Starting Codex in {workingDirectory}"));
+        progress?.Report(new CodexProgress("input", commandLine));
+        progress?.Report(new CodexProgress("input", "stdin: " + request.Prompt));
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(request.Timeout ?? TimeSpan.FromSeconds(Math.Max(5, _options.TimeoutSeconds)));
@@ -80,17 +82,23 @@ public sealed class CodexCliClient(
             run = await processRunner.RunAsync(
                 startInfo,
                 request.Prompt,
-                new Progress<string>(line =>
+                new ImmediateProgress<string>(line =>
                 {
+                    progress?.Report(new CodexProgress("stdout", line));
                     var parsed = CodexJsonEventParser.TryParse(line);
                     if (parsed is null)
                     {
                         return;
                     }
 
-                    events.Add(parsed);
+                    lock (events)
+                    {
+                        events.Add(parsed);
+                    }
+
                     progress?.Report(ToProgress(parsed));
                 }),
+                new ImmediateProgress<string>(line => progress?.Report(new CodexProgress("stderr", line))),
                 timeout.Token);
         }
         catch (CodexNotInstalledException ex)
@@ -118,10 +126,12 @@ public sealed class CodexCliClient(
             };
         }
 
-        // Plain-text fallback: if --json was unavailable, keep the last stdout block.
-        if (events.Count == 0 && !string.IsNullOrWhiteSpace(run.Stdout))
+        // Rebuild from captured stdout so final fields do not depend on IProgress timing.
+        List<CodexJsonEvent> snapshot;
+        lock (events)
         {
-            foreach (var line in run.Stdout.Split('\n'))
+            events.Clear();
+            foreach (var line in SplitLines(run.Stdout))
             {
                 var parsed = CodexJsonEventParser.TryParse(line);
                 if (parsed is not null)
@@ -129,11 +139,13 @@ public sealed class CodexCliClient(
                     events.Add(parsed);
                 }
             }
+
+            snapshot = [.. events];
         }
 
-        var parsedError = CodexJsonEventParser.FirstError(events);
-        var finalMessage = CodexJsonEventParser.LastAgentMessage(events)
-            ?? (events.Count == 0 ? run.Stdout.Trim() : null);
+        var parsedError = CodexJsonEventParser.FirstError(snapshot);
+        var finalMessage = CodexJsonEventParser.LastAgentMessage(snapshot)
+            ?? (snapshot.Count == 0 ? run.Stdout.Trim() : null);
         var succeeded = run.ExitCode == 0 && parsedError is null;
         var combined = $"{parsedError}{Environment.NewLine}{run.Stderr}{Environment.NewLine}{finalMessage}";
         var error = succeeded
@@ -146,15 +158,15 @@ public sealed class CodexCliClient(
         {
             Succeeded = succeeded,
             ExitCode = run.ExitCode,
-            ThreadId = CodexJsonEventParser.FirstThreadId(events),
+            ThreadId = CodexJsonEventParser.FirstThreadId(snapshot),
             FinalMessage = string.IsNullOrWhiteSpace(finalMessage) ? null : finalMessage,
             Error = error,
             CommandLine = commandLine,
             WorkingDirectory = workingDirectory,
-            ChangedFiles = CodexJsonEventParser.DistinctChangedFiles(events),
-            CommandsRun = CodexJsonEventParser.CommandsRun(events),
+            ChangedFiles = CodexJsonEventParser.DistinctChangedFiles(snapshot),
+            CommandsRun = CodexJsonEventParser.CommandsRun(snapshot),
             Stderr = run.Stderr.Trim(),
-            Events = events
+            Events = snapshot
         };
     }
 
@@ -225,5 +237,24 @@ public sealed class CodexCliClient(
         };
 
         return new CodexProgress(parsed.Type, message, parsed);
+    }
+
+    private static IEnumerable<string> SplitLines(string? text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            yield break;
+        }
+
+        var normalized = text.Replace("\r\n", "\n", StringComparison.Ordinal);
+        if (normalized.EndsWith('\n'))
+        {
+            normalized = normalized[..^1];
+        }
+
+        foreach (var line in normalized.Split('\n'))
+        {
+            yield return line;
+        }
     }
 }

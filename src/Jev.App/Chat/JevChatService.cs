@@ -10,7 +10,8 @@ public sealed class JevChatService(
     JevAgentHandle handle,
     IJevRunStatus status,
     ICodingStrategySelector selector,
-    ICodingHost host)
+    ICodingHost host,
+    ICliTranscript transcript)
 {
     private AgentSession? _session;
 
@@ -23,6 +24,8 @@ public sealed class JevChatService(
     public ICodingStrategySelector Selector => selector;
 
     public ICodingHost Host => host;
+
+    public ICliTranscript Transcript => transcript;
 
     public IList<ChatTurn> Turns { get; } = [];
 
@@ -115,6 +118,7 @@ public sealed class JevChatService(
         }
 
         _session = null;
+        transcript.Clear();
         status.SetPhase(JevPhase.Idle, "New conversation");
     }
 

@@ -26,7 +26,7 @@ public sealed class CodexCliClientTests
 
         var result = await client.ExecAsync(
             new CodexExecRequest { Prompt = "scaffold hello", WorkingDirectory = Path.GetTempPath() },
-            new Progress<CodexProgress>(progress.Add));
+            new ImmediateProgress<CodexProgress>(progress.Add));
 
         Assert.True(result.Succeeded);
         Assert.Equal("t-1", result.ThreadId);
@@ -36,7 +36,35 @@ public sealed class CodexCliClientTests
         Assert.Equal("-", runner.LastStartInfo.ArgumentList[^1]);
         Assert.Equal("scaffold hello", runner.LastStdin);
         Assert.NotEmpty(progress);
+        Assert.Contains(progress, item => item.Phase == "input" && item.Message.Contains("codex"));
+        Assert.Contains(progress, item => item.Phase == "input" && item.Message.StartsWith("stdin:", StringComparison.Ordinal));
+        Assert.Contains(progress, item => item.Phase == "stdout" && item.Message.Contains("thread.started"));
         Assert.Contains("codex", result.FormatForAgent(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ExecAsync_streams_unparsed_stdout_and_stderr()
+    {
+        var runner = new ScriptedProcessRunner(
+            new ProcessRunResult
+            {
+                ExitCode = 0,
+                Stdout = """
+                    not-json
+                    {"type":"thread.started","thread_id":"t-2"}
+                    """,
+                Stderr = "diag-one\n"
+            });
+
+        var progress = new List<CodexProgress>();
+        var result = await CreateClient(runner).ExecAsync(
+            new CodexExecRequest { Prompt = "hi", WorkingDirectory = Path.GetTempPath() },
+            new ImmediateProgress<CodexProgress>(progress.Add));
+
+        Assert.True(result.Succeeded);
+        Assert.Contains(progress, item => item.Phase == "stdout" && item.Message == "not-json");
+        Assert.Contains(progress, item => item.Phase == "stderr" && item.Message == "diag-one");
+        Assert.Equal("t-2", result.ThreadId);
     }
 
     [Fact]
@@ -113,17 +141,42 @@ public sealed class CodexCliClientTests
             ProcessStartInfo startInfo,
             string? standardInput,
             IProgress<string>? stdoutLine,
+            IProgress<string>? stderrLine,
             CancellationToken cancellationToken)
         {
             LastStartInfo = startInfo;
             LastStdin = standardInput;
             var result = _handler(startInfo);
-            foreach (var line in result.Stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+            foreach (var line in SplitLines(result.Stdout))
             {
                 stdoutLine?.Report(line);
             }
 
+            foreach (var line in SplitLines(result.Stderr))
+            {
+                stderrLine?.Report(line);
+            }
+
             return Task.FromResult(result);
+        }
+
+        private static IEnumerable<string> SplitLines(string? text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                yield break;
+            }
+
+            var normalized = text.Replace("\r\n", "\n", StringComparison.Ordinal);
+            if (normalized.EndsWith('\n'))
+            {
+                normalized = normalized[..^1];
+            }
+
+            foreach (var line in normalized.Split('\n'))
+            {
+                yield return line;
+            }
         }
     }
 }

@@ -9,6 +9,7 @@ public sealed class CliProcessRunner : ICliProcessRunner
         ProcessStartInfo startInfo,
         string? standardInput,
         IProgress<string>? stdoutLine,
+        IProgress<string>? stderrLine,
         CancellationToken cancellationToken)
     {
         startInfo.UseShellExecute = false;
@@ -34,7 +35,7 @@ public sealed class CliProcessRunner : ICliProcessRunner
         var stdout = new StringBuilder();
         var stderr = new StringBuilder();
         var stdoutTask = ReadLinesAsync(process.StandardOutput, stdout, stdoutLine, cancellationToken);
-        var stderrTask = ReadToEndAsync(process.StandardError, stderr, cancellationToken);
+        var stderrTask = ReadLinesAsync(process.StandardError, stderr, stderrLine, cancellationToken);
 
         if (!string.IsNullOrEmpty(standardInput))
         {
@@ -71,7 +72,4 @@ public sealed class CliProcessRunner : ICliProcessRunner
             progress?.Report(line);
         }
     }
-
-    private static async Task ReadToEndAsync(StreamReader reader, StringBuilder buffer, CancellationToken cancellationToken)
-        => buffer.Append(await reader.ReadToEndAsync(cancellationToken));
 }

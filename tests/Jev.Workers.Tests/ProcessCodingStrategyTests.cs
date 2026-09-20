@@ -24,10 +24,14 @@ public sealed class ProcessCodingStrategyTests
         Assert.False(availability.IsInstalled);
         Assert.Contains("wasm", availability.FormatForAgent(), StringComparison.OrdinalIgnoreCase);
 
-        var result = await strategy.RunAsync(new CodingTaskRequest { Prompt = "hi" });
+        var progress = new List<CodingProgress>();
+        var result = await strategy.RunAsync(
+            new CodingTaskRequest { Prompt = "hi" },
+            new ImmediateProgress<CodingProgress>(progress.Add));
         Assert.False(result.Succeeded);
         Assert.Equal(126, result.ExitCode);
         Assert.Null(runner.LastStartInfo);
+        Assert.Contains(progress, item => item.Phase == CodingProgress.System && item.Message.Contains("wasm", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -116,6 +120,41 @@ public sealed class ProcessCodingStrategyTests
     }
 
     [Fact]
+    public async Task GrokBuild_run_streams_sanitized_input_and_output_as_they_arrive()
+    {
+        var runner = new ScriptedRunner(_ => new CliProcessRunResult
+        {
+            ExitCode = 0,
+            Stdout = "line-one\n{\"result\":\"ok\"}\n",
+            Stderr = "warn-one\n"
+        });
+        var strategy = new GrokBuildCodingStrategy(
+            Options.Create(new GrokBuildCliOptions { ExecutablePath = "grok" }),
+            runner,
+            NullLogger<GrokBuildCodingStrategy>.Instance);
+
+        var progress = new List<CodingProgress>();
+        var result = await strategy.RunAsync(
+            new CodingTaskRequest
+            {
+                Prompt = "use OPENAI_API_KEY=sk-secretsecretsecret",
+                WorkingDirectory = Path.GetTempPath()
+            },
+            new ImmediateProgress<CodingProgress>(progress.Add));
+
+        Assert.True(result.Succeeded);
+        Assert.Contains(progress, item => item.Phase == CodingProgress.Starting);
+        Assert.Contains(progress, item => item.Phase == CodingProgress.Input && item.Message.Contains("grok"));
+        Assert.Contains(progress, item => item.Phase == CodingProgress.Input && item.Message.Contains(SecretSanitizer.Redacted));
+        Assert.DoesNotContain(progress, item => item.Message.Contains("sk-secretsecretsecret", StringComparison.Ordinal));
+        Assert.Contains(progress, item => item.Phase == CodingProgress.Stdout && item.Message == "line-one");
+        Assert.Contains(progress, item => item.Phase == CodingProgress.Stdout && item.Message.Contains("\"result\""));
+        Assert.Contains(progress, item => item.Phase == CodingProgress.Stderr && item.Message == "warn-one");
+        Assert.Equal(2, runner.StdoutCallbacks);
+        Assert.Equal(1, runner.StderrCallbacks);
+    }
+
+    [Fact]
     public async Task Cline_run_degrades_when_binary_missing()
     {
         var runner = new ScriptedRunner(_ => throw new CliExecutableNotFoundException("cline"));
@@ -168,14 +207,51 @@ public sealed class ProcessCodingStrategyTests
 
         public ProcessStartInfo? LastStartInfo { get; private set; }
 
+        public int StdoutCallbacks { get; private set; }
+
+        public int StderrCallbacks { get; private set; }
+
         public Task<CliProcessRunResult> RunAsync(
             ProcessStartInfo startInfo,
             string? standardInput,
             IProgress<string>? stdoutLine,
+            IProgress<string>? stderrLine,
             CancellationToken cancellationToken)
         {
             LastStartInfo = startInfo;
-            return Task.FromResult(_handler(startInfo));
+            var result = _handler(startInfo);
+            foreach (var line in SplitLines(result.Stdout))
+            {
+                StdoutCallbacks++;
+                stdoutLine?.Report(line);
+            }
+
+            foreach (var line in SplitLines(result.Stderr))
+            {
+                StderrCallbacks++;
+                stderrLine?.Report(line);
+            }
+
+            return Task.FromResult(result);
+        }
+
+        private static IEnumerable<string> SplitLines(string? text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                yield break;
+            }
+
+            var normalized = text.Replace("\r\n", "\n", StringComparison.Ordinal);
+            if (normalized.EndsWith('\n'))
+            {
+                normalized = normalized[..^1];
+            }
+
+            foreach (var line in normalized.Split('\n'))
+            {
+                yield return line;
+            }
         }
     }
 }
