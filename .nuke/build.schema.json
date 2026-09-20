@@ -28,10 +28,13 @@
         "Compile",
         "Pack",
         "PackAll",
+        "PackTool",
         "PublishAndroid",
         "PublishLinux",
         "PublishWasm",
         "PublishWindows",
+        "PublishWindowsPortable",
+        "Release",
         "Restore",
         "Test"
       ]
@@ -113,6 +116,12 @@
             "Debug",
             "Release"
           ]
+        },
+        "ReleaseTag": {
+          "type": "string"
+        },
+        "Version": {
+          "type": "string"
         }
       }
     },
