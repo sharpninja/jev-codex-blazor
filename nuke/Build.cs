@@ -385,7 +385,7 @@ public class Build : NukeBuild
     {
         var notes = ArtifactsDirectory / "RELEASE_NOTES.md";
         var assets = new[] { WasmZip, LinuxTarball, LinuxDeb, WindowsPortableZip, ChecksumsFile }
-            .Where(File.Exists)
+            .Where(path => File.Exists(path))
             .Select(path => $"\"{path}\"")
             .ToArray();
         if (assets.Length == 0)
