@@ -124,7 +124,7 @@ dotnet build src/Jev.Maui/Jev.Maui.csproj -f net10.0-android
 
 ## NUKE packs
 
-NUKE 10.1.0 lives in [`nuke/`](nuke/). From the repo root:
+NUKE 10.1.0 lives in [`nuke/`](nuke/). From the repo root use `./build.sh` or, on Windows, `.\build.ps1` with the same targets:
 
 ```bash
 ./build.sh Compile
