@@ -128,21 +128,28 @@ NUKE 10.1.0 lives in [`nuke/`](nuke/). From the repo root:
 ./build.sh Compile
 ./build.sh Test
 ./build.sh PublishWasm
-./build.sh PublishLinux
-./build.sh PublishWindows     # fails clearly unless Windows + maui-windows
-./build.sh PublishAndroid     # fails clearly unless maui-android + Android SDK
-./build.sh Pack               # Test + WASM + current-OS desktop pack
-./build.sh PackAll            # all four; missing SDKs fail, they do not no-op
+./build.sh PublishLinux              # tarball + .deb installer
+./build.sh PublishWindowsPortable    # Photino win-x64 zip (cross-published from Linux)
+./build.sh PublishWindows            # MAUI Windows; fails clearly unless Windows + maui-windows
+./build.sh PublishAndroid            # fails clearly unless maui-android + Android SDK
+./build.sh Pack                      # Test + WASM + Linux installers + Windows portable
+./build.sh PackAll                   # also MAUI Windows/Android; missing SDKs fail, they do not no-op
+./build.sh Release                   # Pack + SHA256SUMS + GitHub prerelease v0.1.0
 ```
 
 Outputs under `artifacts/`:
 
 | File | Contents |
 | --- | --- |
-| `jev-wasm.zip` | WASM static site from `artifacts/wasm/wwwroot` (the publish `wwwroot`; host files such as `web.config` stay beside it) |
-| `jev-linux-x64.tar.gz` | Self-contained Photino Linux app |
-| `jev-windows-x64.zip` | Unpackaged MAUI Windows app (`WindowsPackageType=None`). MSIX: republish with `-p:WindowsPackageType=MSIX` when the Windows App SDK is present. |
+| `jev-wasm.zip` | WASM static site (`artifacts/wasm/wwwroot`) |
+| `jev-linux-x64.tar.gz` | Self-contained Photino Linux app (`./Jev`) |
+| `jev_<version>_amd64.deb` | Linux installer (`sudo dpkg -i …` then `jev`) |
+| `jev-windows-x64.zip` | Photino + WebView2 portable Windows app (`Jev.exe`), cross-published from Linux |
+| `jev-windows-maui-x64.zip` | MAUI unpackaged Windows app (Windows pack machine only). MSIX: `-p:WindowsPackageType=MSIX` |
+| `SHA256SUMS` | SHA-256 checksums of the files above |
 | `*.apk` | MAUI Android package (also copy any `.aab` the SDK emits) |
+
+Install the Linux package with `sudo dpkg -i jev_0.1.0_amd64.deb`. The `.deb` depends on WebKitGTK (`libwebkit2gtk-4.1-0` or `libwebkit2gtk-4.0-37`).
 
 ## Try a sample chat
 
