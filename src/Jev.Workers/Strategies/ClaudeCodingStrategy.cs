@@ -8,7 +8,8 @@ namespace Jev.Workers.Strategies;
 public sealed class ClaudeCodingStrategy(
     IOptions<ClaudeCliOptions> optionsAccessor,
     ICliProcessRunner processRunner,
-    ILogger<ClaudeCodingStrategy> logger) : ProcessCodingStrategy(processRunner, logger)
+    ILogger<ClaudeCodingStrategy> logger,
+    ICodingHost? host = null) : ProcessCodingStrategy(processRunner, logger, host)
 {
     private readonly ClaudeCliOptions _options = optionsAccessor.Value;
     private readonly ClaudeCommandBuilder _commands = new(optionsAccessor.Value);

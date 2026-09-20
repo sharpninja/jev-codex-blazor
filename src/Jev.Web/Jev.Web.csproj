@@ -4,7 +4,7 @@
     <UserSecretsId>jev-codex-blazor</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Jev.Core\Jev.Core.csproj" />
+    <ProjectReference Include="..\Jev.App\Jev.App.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="..\..\prompts\*.md" Link="prompts\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />

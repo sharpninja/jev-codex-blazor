@@ -6,6 +6,8 @@ public sealed class CodingAvailability
 
     public required bool IsInstalled { get; init; }
 
+    public bool IsSupported { get; init; } = true;
+
     /// <summary>
     /// <c>true</c> when the CLI reports a subscription session, <c>false</c> when
     /// it reports logged-out, <c>null</c> when the CLI has no status command.
@@ -24,6 +26,11 @@ public sealed class CodingAvailability
 
     public string FormatForAgent()
     {
+        if (!IsSupported)
+        {
+            return $"{Kind} worker is not supported on this host. {Error}";
+        }
+
         if (!IsInstalled)
         {
             return $"{Kind} worker is not installed ({ExecutablePath}). {Error}";

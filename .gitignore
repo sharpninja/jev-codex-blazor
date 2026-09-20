@@ -33,3 +33,5 @@ coverage*
 .dotnet/
 .nuget/
 *.nupkg
+.tmp/
+.nuke/temp

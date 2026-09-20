@@ -2,8 +2,6 @@ using Jev.Core.Agent;
 using Jev.Core.Persona;
 using Jev.Core.Runtime;
 using Jev.Core.Tools;
-using Microsoft.Extensions.FileProviders;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -18,7 +16,7 @@ public sealed class JevAgentEndToEndTests
         var status = new JevRunStatus();
         var tools = new JevCodingTools(new FixedSelector(worker), status);
         var factory = new JevAgentFactory(
-            new JevPersona(Options.Create(new JevAgentOptions()), new StubHostEnvironment()),
+            new JevPersona(Options.Create(new JevAgentOptions())),
             tools,
             new FixedSelector(worker),
             status,
@@ -47,13 +45,5 @@ public sealed class JevAgentEndToEndTests
             session);
         Assert.Equal(2, worker.Prompts.Count);
         Assert.Contains("Program.cs", scaffoldAgain.Text);
-    }
-
-    private sealed class StubHostEnvironment : IHostEnvironment
-    {
-        public string EnvironmentName { get; set; } = "Development";
-        public string ApplicationName { get; set; } = "tests";
-        public string ContentRootPath { get; set; } = AppContext.BaseDirectory;
-        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
     }
 }

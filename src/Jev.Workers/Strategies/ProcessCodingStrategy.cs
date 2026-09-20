@@ -6,8 +6,11 @@ namespace Jev.Workers.Strategies;
 
 public abstract class ProcessCodingStrategy(
     ICliProcessRunner processRunner,
-    ILogger logger) : ICodingAgentStrategy
+    ILogger logger,
+    ICodingHost? host = null) : ICodingAgentStrategy
 {
+    private readonly ICodingHost _host = host ?? CodingHost.Desktop("desktop");
+
     public abstract CodingStrategyKind Kind { get; }
 
     public abstract string DisplayName { get; }
@@ -30,6 +33,11 @@ public abstract class ProcessCodingStrategy(
 
     public async Task<CodingAvailability> ProbeAsync(CancellationToken cancellationToken = default)
     {
+        if (!_host.SupportsLocalCli)
+        {
+            return Unsupported();
+        }
+
         try
         {
             var versionInfo = CreateStartInfo(ExecutablePath, BuildVersionArguments(), Directory.GetCurrentDirectory());
@@ -84,6 +92,11 @@ public abstract class ProcessCodingStrategy(
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(request.Prompt);
+        if (!_host.SupportsLocalCli)
+        {
+            return Failed(126, "", "", CodingHost.UnsupportedMessage(_host));
+        }
+
         var workingDirectory = WorkspacePath.Ensure(request.WorkingDirectory, DefaultWorkspaceRoot, request.CreateWorkspaceIfMissing);
         var arguments = BuildExecArguments(request, workingDirectory);
         var commandLine = CliCommandLine.Format(ExecutablePath, arguments);
@@ -138,6 +151,18 @@ public abstract class ProcessCodingStrategy(
             Stderr = run.Stderr.Trim()
         };
     }
+
+    private CodingAvailability Unsupported()
+        => new()
+        {
+            Kind = Kind,
+            IsInstalled = false,
+            IsSupported = false,
+            IsLoggedIn = false,
+            ExecutablePath = ExecutablePath,
+            LoginCommand = LoginCommand,
+            Error = CodingHost.UnsupportedMessage(_host)
+        };
 
     private CodingAvailability Missing(string error)
         => new()

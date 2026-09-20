@@ -25,7 +25,7 @@ public sealed class CodexProcessRunner : ICodexProcessRunner
             process = Process.Start(startInfo)
                 ?? throw new InvalidOperationException($"Failed to start '{startInfo.FileName}'.");
         }
-        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or FileNotFoundException)
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or FileNotFoundException or PlatformNotSupportedException)
         {
             throw new CodexNotInstalledException(startInfo.FileName, ex);
         }

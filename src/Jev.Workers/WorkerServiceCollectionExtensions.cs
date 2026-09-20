@@ -11,6 +11,11 @@ public static class WorkerServiceCollectionExtensions
 {
     public static IServiceCollection AddCodingWorkers(this IServiceCollection services, IConfiguration configuration)
     {
+        if (services.All(descriptor => descriptor.ServiceType != typeof(ICodingHost)))
+        {
+            services.AddSingleton<ICodingHost>(CodingHost.Desktop("desktop"));
+        }
+
         services.AddCodexCli(configuration);
         services.AddSingleton<ICliProcessRunner, CliProcessRunner>();
 

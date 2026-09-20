@@ -8,7 +8,8 @@ namespace Jev.Workers.Strategies;
 public sealed class GrokBuildCodingStrategy(
     IOptions<GrokBuildCliOptions> optionsAccessor,
     ICliProcessRunner processRunner,
-    ILogger<GrokBuildCodingStrategy> logger) : ProcessCodingStrategy(processRunner, logger)
+    ILogger<GrokBuildCodingStrategy> logger,
+    ICodingHost? host = null) : ProcessCodingStrategy(processRunner, logger, host)
 {
     private readonly GrokBuildCliOptions _options = optionsAccessor.Value;
     private readonly GrokBuildCommandBuilder _commands = new(optionsAccessor.Value);

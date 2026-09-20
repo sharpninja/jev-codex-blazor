@@ -1,18 +1,26 @@
-# Jev + coding-worker strategies + Blazor
+# Jev + coding-worker strategies + Blazor Hybrid
 
-A .NET 10 solution where a user chats with **Jev** in a Blazor harness. Jev is a coding-assistant *emulation layer* (persona, policies, and tool wrappers). Microsoft Agent Framework owns conversation and tool orchestration. A **strategy-pattern coding worker** does the actual file/tool work.
+A .NET 10 solution where a user chats with **Jev** through a **shared Blazor UI** hosted as WASM, ASP.NET, Linux desktop (Photino), and MAUI (Windows / Android). Jev is a coding-assistant *emulation layer*. Microsoft Agent Framework owns conversation and tool orchestration. A **strategy-pattern coding worker** does the actual file/tool work on desktop hosts.
 
 ```
-Blazor chat UI
-    → Jev ChatClientAgent (Microsoft Agent Framework)
-        → Jev tools (probe / run task / scaffold demo)
-            → selected ICodingAgentStrategy
-                → Codex | Claude Code | Grok Build | Cline
+Jev.App (shared Razor UI + chat service)
+    ├── Jev.Web          ASP.NET Interactive Server (Linux CI / `dotnet run`)
+    ├── Jev.Wasm         Blazor WebAssembly (browser)
+    ├── Jev.Linux        Photino.Blazor Hybrid (Linux desktop WebView)
+    └── Jev.Maui         .NET MAUI Blazor Hybrid (Windows + Android)
+            ↓
+    Jev ChatClientAgent (Microsoft Agent Framework)
+            ↓
+    selected ICodingAgentStrategy
+            ↓
+    Codex | Claude Code | Grok Build | Cline   (desktop Windows/Linux only)
 ```
 
 The UI never talks to a CLI directly. Switching the active strategy (config, `JEV_CODING_STRATEGY`, or the sidebar) changes which worker the tools call.
 
 **Auth split:** coding workers use **subscription login only**. An optional OpenAI key, if present, is only for Jev's orchestration LLM — never for Codex, Claude, Grok, or Cline.
+
+**Host split:** local coding CLIs are a desktop/dev-machine concern. WASM and Android report *not supported on this host* instead of crashing. Windows MAUI and Linux Photino still spawn CLIs when they are installed.
 
 ## Who is Jev?
 
@@ -30,13 +38,20 @@ Persona and policy text live in editable markdown:
 
 ## Projects
 
-| Project | Role |
-| --- | --- |
-| `src/Jev.Web` | Blazor Web App (Interactive Server) chat harness |
-| `src/Jev.Core` | Jev persona, Agent Framework agent, strategy-aware tools, fallback router |
-| `src/Jev.Workers` | `ICodingAgentStrategy`, factory/selector, Claude / Grok Build / Cline adapters |
-| `src/Jev.Codex` | Codex CLI process adapter and JSONL parser (used by the Codex strategy) |
-| `tests/*` | Command contracts, routing, selector, and adapter tests |
+| Project | Role | In `dotnet build` (Linux CI) |
+| --- | --- | --- |
+| `src/Jev.App` | Shared Razor class library (chat UI, `JevChatService`) | yes |
+| `src/Jev.Web` | Thin Interactive Server host | yes |
+| `src/Jev.Wasm` | Blazor WebAssembly host | yes |
+| `src/Jev.Linux` | Photino.Blazor Hybrid Linux desktop | yes |
+| `src/Jev.Maui` | MAUI Blazor Hybrid (`net10.0-windows10.0.19041.0` + `net10.0-android`) | no — Windows App SDK / Android SDK |
+| `src/Jev.Core` | Jev persona, Agent Framework agent, strategy-aware tools | yes |
+| `src/Jev.Workers` | `ICodingAgentStrategy`, `ICodingHost`, Claude / Grok / Cline | yes |
+| `src/Jev.Codex` | Codex CLI adapter | yes |
+| `nuke/` | NUKE 10.1.0 orchestration | yes |
+| `tests/*` | Command contracts, selector, host gating | yes |
+
+Official .NET MAUI does not ship a Linux TFM. Linux Hybrid uses [Photino.Blazor 4.0.13](https://www.nuget.org/packages/Photino.Blazor) (WebKitGTK WebView) so the same `Jev.App` UI runs natively on Linux.
 
 ## Coding-worker strategies
 
@@ -49,26 +64,27 @@ Each worker authenticates with a **vendor subscription login**. This repo does n
 | **GrokBuild** | `grok` | `grok -p "<prompt>" --output-format streaming-json --always-approve --cwd <dir>` | [Grok Build](https://docs.x.ai/build/cli/reference): `grok login` (SuperGrok / X Premium+). Headless: `grok login --device-auth`. | No public status command — run `grok login` once. |
 | **Cline** | `cline` | `cline --json --yolo --auto-approve true --cwd <dir> --timeout <sec> "<prompt>"` | [Cline CLI](https://docs.cline.bot/getting-started/authorizing-with-cline): `cline auth` (or `cline a`) and choose **Sign in with Cline** / ClinePass. Default provider is `cline` (subscription). | No public status command — run `cline auth` once; `cline config` inspects the saved session. |
 
-Probes first run `--version`. When the CLI exposes a login-status command, a failed status is reported as **not logged in** (separate from **not installed**). Run failures that look like auth errors point at the same login command. No fake package versions are invented; the contracts above match current public CLI docs.
+Probes first run `--version`. When the CLI exposes a login-status command, a failed status is reported as **not logged in** (separate from **not installed**). WASM/Android skip process spawn and return **not supported**. No fake package versions are invented.
 
 ## Prerequisites
 
 1. **.NET 10 SDK** (this repo targets `net10.0`; developed against SDK `10.0.401`).
-2. **At least one coding-worker CLI** on `PATH`, then its **subscription login** (table above), if you want real file edits. The app still runs and chats when none are installed.
-3. **Optional orchestration LLM** for Jev's Agent Framework chat client (`OpenAI:ApiKey` / `OPENAI_API_KEY`). If unset, Jev uses a local fallback router that still emits function calls into the selected strategy. This key is **not** used by the coding workers.
+2. **Desktop hosts only:** at least one coding-worker CLI on `PATH`, then its **subscription login**, if you want real file edits.
+3. **Optional orchestration LLM** (`OpenAI:ApiKey` / `OPENAI_API_KEY`) for Jev's Agent Framework chat client. Unrelated to worker auth.
+4. **Pack-only SDKs** (not required for `dotnet build` on Linux):
+   - Windows pack: Windows 10/11 + `dotnet workload install maui-windows` + Windows App SDK
+   - Android pack: `dotnet workload install maui-android` + Android SDK (`ANDROID_SDK_ROOT` or `ANDROID_HOME`)
+   - Linux Photino runtime: WebKitGTK (e.g. `libwebkit2gtk-4.1-0` / GTK 4 on Ubuntu)
 
 ## Configure and switch
 
-Copy [`.env.example`](.env.example) or use user secrets:
+Copy [`.env.example`](.env.example) or use user secrets on `Jev.Web`:
 
 ```bash
 cd src/Jev.Web
-# Optional — Jev orchestration LLM only. Not used by coding workers.
 dotnet user-secrets set "OpenAI:ApiKey" "<orchestration-key>"
 dotnet user-secrets set "Jev:CodingStrategy" "Claude"
 ```
-
-Then sign the worker in from a terminal (once per machine):
 
 ```bash
 codex login           # ChatGPT subscription
@@ -81,48 +97,83 @@ cline auth            # Cline / ClinePass
 | --- | --- |
 | `Jev:CodingStrategy` / `JEV_CODING_STRATEGY` | `Codex` (default), `Claude`, `GrokBuild`, or `Cline` |
 | `OPENAI_API_KEY` / `OPENAI_MODEL` | Optional Jev **orchestration** LLM only |
-| `CODEX_EXECUTABLE` | Codex binary (default `codex`) |
-| `CLAUDE_EXECUTABLE` | Claude Code binary (default `claude`) |
-| `GROK_EXECUTABLE` | Grok Build binary (default `grok`) |
-| `CLINE_EXECUTABLE` | Cline binary (default `cline`) |
+| `CODEX_EXECUTABLE` / `CLAUDE_EXECUTABLE` / `GROK_EXECUTABLE` / `CLINE_EXECUTABLE` | Optional binary overrides |
 
-In the Blazor sidebar, the four strategies are listed with missing / login / ready badges. Tooltips show the subscription login command. Switching starts a new conversation so history from one worker is not reused with another.
-
-Do not commit secrets. `appsettings.json` only has empty placeholders.
-
-## Run
+## Run each host
 
 ```bash
 dotnet restore
-dotnet build
+dotnet build          # Linux-safe solution (no MAUI TFMs)
 dotnet test
-dotnet run --project src/Jev.Web
+
+dotnet run --project src/Jev.Web          # http://localhost:5296
+dotnet run --project src/Jev.Wasm         # WASM dev server
+dotnet run --project src/Jev.Linux        # Photino desktop (Linux/macOS/Windows)
 ```
 
-Open the printed HTTP URL (launch profile defaults to `http://localhost:5296`).
+MAUI (Windows or Android SDK required):
+
+```bash
+dotnet workload install maui-windows   # on Windows
+dotnet workload install maui-android
+dotnet build src/Jev.Maui/Jev.Maui.csproj -f net10.0-windows10.0.19041.0
+dotnet build src/Jev.Maui/Jev.Maui.csproj -f net10.0-android
+```
+
+## NUKE packs
+
+NUKE 10.1.0 lives in [`nuke/`](nuke/). From the repo root:
+
+```bash
+./build.sh Compile
+./build.sh Test
+./build.sh PublishWasm
+./build.sh PublishLinux
+./build.sh PublishWindows     # fails clearly unless Windows + maui-windows
+./build.sh PublishAndroid     # fails clearly unless maui-android + Android SDK
+./build.sh Pack               # Test + WASM + current-OS desktop pack
+./build.sh PackAll            # all four; missing SDKs fail, they do not no-op
+```
+
+Outputs under `artifacts/`:
+
+| File | Contents |
+| --- | --- |
+| `jev-wasm.zip` | Published WASM static site (`artifacts/wasm/wwwroot`) |
+| `jev-linux-x64.tar.gz` | Self-contained Photino Linux app |
+| `jev-windows-x64.zip` | Unpackaged MAUI Windows app (`WindowsPackageType=None`). MSIX: republish with `-p:WindowsPackageType=MSIX` when the Windows App SDK is present. |
+| `*.apk` | MAUI Android package (also copy any `.aab` the SDK emits) |
 
 ## Try a sample chat
 
 1. **Who are you?** — Jev answers from the persona layer. No worker process.
-2. **Is the coding worker available?** — Agent Framework calls `probe_coding_worker` on the active strategy (install + login when the CLI exposes it).
-3. **Scaffold a hello console app in a temp workspace** — Agent Framework calls `scaffold_hello_console`, which runs the selected strategy's headless command in a temp workspace.
-
-If the selected CLI is not installed or not logged in, the tool fails clearly and Jev reports the intended command — it does not invent files.
+2. **Is the coding worker available?** — Agent Framework calls `probe_coding_worker`.
+3. **Scaffold a hello console app in a temp workspace** — `scaffold_hello_console` on desktop hosts; WASM/Android report the host limitation.
 
 ## Architecture notes
 
 ### Microsoft Agent Framework
 
-Packages (current stable as of this skeleton):
-
 - `Microsoft.Agents.AI` 1.22.0
 - `Microsoft.Agents.AI.OpenAI` 1.22.0
 
-Jev is a `ChatClientAgent` created with `IChatClient.AsAIAgent(...)`, `AgentSession` for conversation state, and `AIFunctionFactory` tools. Streaming uses `RunStreamingAsync`. Tools close over `ICodingStrategySelector.Active`, so a sidebar switch takes effect on the next tool call.
+Jev is a `ChatClientAgent` created with `IChatClient.AsAIAgent(...)`, `AgentSession`, and `AIFunctionFactory` tools. Tools close over `ICodingStrategySelector.Active`.
+
+### Host capabilities
+
+`ICodingHost` is registered by each host:
+
+| Host | `Name` | `SupportsLocalCli` |
+| --- | --- | --- |
+| `Jev.Web` | `server` | yes |
+| `Jev.Linux` | `linux` | yes |
+| `Jev.Maui` Windows | `windows` | yes |
+| `Jev.Wasm` | `wasm` | no |
+| `Jev.Maui` Android | `android` | no |
 
 ### Fallback orchestration
 
-When the optional orchestration key is empty, `FallbackJevChatClient` implements `IChatClient` and chooses tools via `JevIntentRouter`. `ChatClientAgent` still wraps it with function invocation. Coding-worker auth is unchanged: subscription login on the selected CLI.
+When the optional orchestration key is empty, `FallbackJevChatClient` still emits Agent Framework function calls. Worker auth stays subscription login on desktop CLIs.
 
 ## License
 

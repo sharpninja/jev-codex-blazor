@@ -1,4 +1,5 @@
-﻿<!DOCTYPE html>
+﻿@using Jev.App.Components
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -6,14 +7,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
     <ResourcePreloader />
-    <link rel="stylesheet" href="@Assets["app.css"]" />
+    <link rel="stylesheet" href="@Assets["_content/Jev.App/app.css"]" />
     <link rel="stylesheet" href="@Assets["Jev.Web.styles.css"]" />
     <ImportMap />
-    <HeadOutlet />
+    <HeadOutlet @rendermode="InteractiveServer" />
 </head>
 
 <body>
-    <Routes />
+    <Routes @rendermode="InteractiveServer" />
     <ReconnectModal />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>

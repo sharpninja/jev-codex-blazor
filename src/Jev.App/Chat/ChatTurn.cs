@@ -1,4 +1,4 @@
-namespace Jev.Web.Chat;
+namespace Jev.App.Chat;
 
 public sealed class ChatTurn
 {

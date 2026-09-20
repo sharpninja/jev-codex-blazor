@@ -1,14 +1,15 @@
-using Jev.Core;
-using Jev.Web.Chat;
+using Jev.App;
+using Jev.App.Components;
 using Jev.Web.Components;
+using Jev.Workers;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-builder.Services.AddJevAgent(builder.Configuration);
-builder.Services.AddScoped<JevChatService>();
+builder.Services.AddSingleton<ICodingHost>(CodingHost.Desktop("server"));
+builder.Services.AddJevApp(builder.Configuration);
 
 var app = builder.Build();
 
@@ -27,6 +28,7 @@ app.UseAntiforgery();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+    .AddInteractiveServerRenderMode()
+    .AddAdditionalAssemblies(typeof(Routes).Assembly);
 
 app.Run();

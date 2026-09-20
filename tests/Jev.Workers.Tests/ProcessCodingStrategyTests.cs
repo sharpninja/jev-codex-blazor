@@ -10,6 +10,27 @@ namespace Jev.Workers.Tests;
 public sealed class ProcessCodingStrategyTests
 {
     [Fact]
+    public async Task Restricted_host_does_not_spawn_a_cli()
+    {
+        var runner = new ScriptedRunner(_ => throw new InvalidOperationException("CLI should not run on WASM/Android"));
+        var strategy = new ClaudeCodingStrategy(
+            Options.Create(new ClaudeCliOptions { ExecutablePath = "claude" }),
+            runner,
+            NullLogger<ClaudeCodingStrategy>.Instance,
+            CodingHost.Restricted("wasm"));
+
+        var availability = await strategy.ProbeAsync();
+        Assert.False(availability.IsSupported);
+        Assert.False(availability.IsInstalled);
+        Assert.Contains("wasm", availability.FormatForAgent(), StringComparison.OrdinalIgnoreCase);
+
+        var result = await strategy.RunAsync(new CodingTaskRequest { Prompt = "hi" });
+        Assert.False(result.Succeeded);
+        Assert.Equal(126, result.ExitCode);
+        Assert.Null(runner.LastStartInfo);
+    }
+
+    [Fact]
     public async Task Claude_probe_reports_missing_binary()
     {
         var runner = new ScriptedRunner(_ => throw new CliExecutableNotFoundException("claude"));

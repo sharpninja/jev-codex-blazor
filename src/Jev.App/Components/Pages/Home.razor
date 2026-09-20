@@ -1,0 +1,275 @@
+@page "/"
+@using Jev.Core.Runtime
+@inject JevChatService Chat
+@implements IDisposable
+
+<PageTitle>Jev</PageTitle>
+
+<div class="app">
+    <aside class="rail">
+        <div class="brand">
+            <div class="mark" aria-hidden="true">J</div>
+            <div>
+                <h1>Jev</h1>
+                <p>Strategy-backed coding assistant</p>
+            </div>
+        </div>
+
+        <dl class="facts">
+            <div>
+                <dt>Host</dt>
+                <dd>@Chat.Host.Name — @(Chat.Host.SupportsLocalCli ? "local CLIs" : "no local CLIs")</dd>
+            </div>
+            <div>
+                <dt>Orchestration</dt>
+                <dd>@Chat.Orchestration</dd>
+            </div>
+            <div>
+                <dt>Active worker</dt>
+                <dd class="@(ActiveWorkerOk ? "ok" : "warn")" title="@ActiveWorkerTitle">
+                    @Chat.Status.ActiveStrategy — @ActiveWorkerLabel
+                </dd>
+            </div>
+            <div>
+                <dt>Persona</dt>
+                <dd>prompts/jev-system.md</dd>
+            </div>
+        </dl>
+
+        <div class="strategies">
+            <span class="strategies-label">Coding worker</span>
+            @foreach (var strategy in Chat.Selector.All)
+            {
+                var availability = Chat.Selector.Availability.TryGetValue(strategy.Kind, out var probed) ? probed : null;
+                var badge = StrategyBadge(availability);
+                <button type="button"
+                        class="strategy @(strategy.Kind == Chat.Selector.ActiveKind ? "active" : null)"
+                        disabled="@_busy"
+                        title="@($"{strategy.ExecutablePath} — subscription: {strategy.LoginCommand}")"
+                        @onclick="() => SwitchAsync(strategy.Kind)">
+                    <strong>@strategy.DisplayName</strong>
+                    <small class="@badge.Css">@badge.Label</small>
+                </button>
+            }
+        </div>
+
+        <p class="lede">
+            Chat with Jev. Implementation work is delegated to the selected coding
+            worker through Microsoft Agent Framework tools — this UI never calls a CLI directly.
+            Workers use subscription login (<code>codex login</code>, <code>claude auth login</code>,
+            <code>grok login</code>, <code>cline auth</code>), not API keys.
+            @if (!Chat.Host.SupportsLocalCli)
+            {
+                <text> This host cannot run coding CLIs; switch to the Windows or Linux desktop app for file work.</text>
+            }
+        </p>
+
+        <button class="ghost" type="button" @onclick="ResetAsync">New conversation</button>
+    </aside>
+
+    <main class="stage">
+        <header class="status-bar">
+            <span class="pill @PhaseClass">@PhaseLabel</span>
+            @if (!string.IsNullOrWhiteSpace(Chat.Status.Detail))
+            {
+                <span class="detail">@Chat.Status.Detail</span>
+            }
+        </header>
+
+        <section class="transcript" @ref="_transcript">
+            @if (Chat.Turns.Count == 0)
+            {
+                <div class="empty">
+                    <h2>Ready when you are.</h2>
+                    <p>Jev plans and explains. @Chat.Status.ActiveStrategy writes the files.</p>
+                    <div class="chips">
+                        @foreach (var sample in Samples)
+                        {
+                            <button type="button" disabled="@_busy" @onclick="() => SendAsync(sample)">@sample</button>
+                        }
+                    </div>
+                </div>
+            }
+            else
+            {
+                @foreach (var turn in Chat.Turns)
+                {
+                    <article class="bubble @turn.Role @(turn.IsError ? "error" : null)">
+                        <header>
+                            <strong>@(turn.Role == "user" ? "You" : "Jev")</strong>
+                            <time>@turn.Timestamp.ToLocalTime().ToString("HH:mm:ss")</time>
+                        </header>
+                        <pre>@turn.Text@if (turn.IsStreaming){<span class="caret">▍</span>}</pre>
+                    </article>
+                }
+            }
+        </section>
+
+        @if (Chat.Status.WorkerEvents.Count > 0)
+        {
+            <details class="codex-log" open>
+                <summary>@Chat.Status.ActiveStrategy progress</summary>
+                <ul>
+                    @foreach (var evt in Chat.Status.WorkerEvents.TakeLast(8))
+                    {
+                        <li><code>@evt.Phase</code> @evt.Message</li>
+                    }
+                </ul>
+            </details>
+        }
+
+        <form class="composer" @onsubmit="SubmitAsync" @onsubmit:preventDefault="true">
+            <textarea @bind="_draft"
+                      @bind:event="oninput"
+                      @onkeydown="OnKeyDown"
+                      placeholder="Ask Jev to plan, probe the coding worker, or scaffold a hello console app…"
+                      rows="3"
+                      disabled="@_busy"></textarea>
+            <button type="submit" disabled="@(_busy || string.IsNullOrWhiteSpace(_draft))">Send</button>
+        </form>
+    </main>
+</div>
+
+@code {
+    private static readonly string[] Samples =
+    [
+        "Who are you?",
+        "Is the coding worker available?",
+        "Scaffold a hello console app in a temp workspace"
+    ];
+
+    private string _draft = "";
+    private bool _busy;
+    private ElementReference _transcript;
+    private CancellationTokenSource _cts = new();
+
+    private string PhaseLabel => Chat.Status.Phase switch
+    {
+        JevPhase.Thinking => "thinking",
+        JevPhase.RunningWorker => $"running {Chat.Status.ActiveStrategy}",
+        JevPhase.Done => "done",
+        JevPhase.Error => "error",
+        _ => "ready"
+    };
+
+    private bool ActiveWorkerOk => Chat.Host.SupportsLocalCli && Chat.Status.WorkerInstalled && Chat.Status.WorkerLoggedIn != false;
+
+    private string ActiveWorkerLabel
+    {
+        get
+        {
+            if (!Chat.Host.SupportsLocalCli)
+            {
+                return "not supported on this host";
+            }
+
+            if (!Chat.Status.WorkerInstalled)
+            {
+                return "not installed";
+            }
+
+            if (Chat.Status.WorkerLoggedIn == false)
+            {
+                return string.IsNullOrWhiteSpace(Chat.Status.WorkerLoginCommand)
+                    ? "not logged in"
+                    : $"not logged in — {Chat.Status.WorkerLoginCommand}";
+            }
+
+            return Chat.Status.WorkerVersion ?? "available";
+        }
+    }
+
+    private string ActiveWorkerTitle => Chat.Status.WorkerLoginCommand is { Length: > 0 } login
+        ? $"{Chat.Status.WorkerVersion} — subscription: {login}"
+        : Chat.Status.WorkerVersion ?? "";
+
+    private static (string Css, string Label) StrategyBadge(CodingAvailability? availability)
+    {
+        if (availability is not null && !availability.IsSupported)
+        {
+            return ("warn", "n/a");
+        }
+
+        if (availability is null || !availability.IsInstalled)
+        {
+            return ("warn", "missing");
+        }
+
+        if (availability.IsLoggedIn == false)
+        {
+            return ("warn", "login");
+        }
+
+        return ("ok", "ready");
+    }
+
+    private string PhaseClass => Chat.Status.Phase switch
+    {
+        JevPhase.Thinking => "thinking",
+        JevPhase.RunningWorker => "running",
+        JevPhase.Done => "done",
+        JevPhase.Error => "error",
+        _ => "idle"
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Chat.EnsureProbedAsync(_cts.Token);
+    }
+
+    private Task SubmitAsync() => SendAsync(_draft);
+
+    private async Task SendAsync(string text)
+    {
+        if (_busy || string.IsNullOrWhiteSpace(text))
+        {
+            return;
+        }
+
+        _draft = "";
+        _busy = true;
+        try
+        {
+            await Chat.SendAsync(text, async () =>
+            {
+                await InvokeAsync(StateHasChanged);
+            }, _cts.Token);
+        }
+        finally
+        {
+            _busy = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task SwitchAsync(CodingStrategyKind kind)
+    {
+        if (_busy)
+        {
+            return;
+        }
+
+        await Chat.SwitchStrategyAsync(kind, _cts.Token);
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter" && !args.ShiftKey)
+        {
+            await SendAsync(_draft);
+        }
+    }
+
+    private async Task ResetAsync()
+    {
+        await Chat.ResetAsync();
+        _draft = "";
+        _busy = false;
+    }
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+}

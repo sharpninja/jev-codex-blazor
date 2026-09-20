@@ -25,7 +25,7 @@ public sealed class CliProcessRunner : ICliProcessRunner
             process = System.Diagnostics.Process.Start(startInfo)
                 ?? throw new InvalidOperationException($"Failed to start '{startInfo.FileName}'.");
         }
-        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or FileNotFoundException)
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or FileNotFoundException or PlatformNotSupportedException)
         {
             throw new CliExecutableNotFoundException(startInfo.FileName, ex);
         }

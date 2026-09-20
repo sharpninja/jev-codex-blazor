@@ -2,9 +2,14 @@ using Jev.Codex;
 
 namespace Jev.Workers.Strategies;
 
-public sealed class CodexCodingStrategy(ICodexCli codex, Microsoft.Extensions.Options.IOptions<CodexCliOptions> options)
+public sealed class CodexCodingStrategy(
+    ICodexCli codex,
+    Microsoft.Extensions.Options.IOptions<CodexCliOptions> options,
+    ICodingHost? host = null)
     : ICodingAgentStrategy
 {
+    private readonly ICodingHost _host = host ?? CodingHost.Desktop("desktop");
+
     public CodingStrategyKind Kind => CodingStrategyKind.Codex;
 
     public string DisplayName => "Codex";
@@ -15,6 +20,20 @@ public sealed class CodexCodingStrategy(ICodexCli codex, Microsoft.Extensions.Op
 
     public async Task<CodingAvailability> ProbeAsync(CancellationToken cancellationToken = default)
     {
+        if (!_host.SupportsLocalCli)
+        {
+            return new CodingAvailability
+            {
+                Kind = Kind,
+                IsInstalled = false,
+                IsSupported = false,
+                IsLoggedIn = false,
+                ExecutablePath = ExecutablePath,
+                LoginCommand = LoginCommand,
+                Error = CodingHost.UnsupportedMessage(_host)
+            };
+        }
+
         var availability = await codex.ProbeAsync(cancellationToken);
         return new CodingAvailability
         {
@@ -33,6 +52,17 @@ public sealed class CodexCodingStrategy(ICodexCli codex, Microsoft.Extensions.Op
         IProgress<CodingProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        if (!_host.SupportsLocalCli)
+        {
+            return new CodingTaskResult
+            {
+                Succeeded = false,
+                ExitCode = 126,
+                Error = CodingHost.UnsupportedMessage(_host),
+                Strategy = DisplayName
+            };
+        }
+
         var result = await codex.ExecAsync(
             new CodexExecRequest
             {

@@ -4,12 +4,13 @@ using Jev.Workers;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 
-namespace Jev.Web.Chat;
+namespace Jev.App.Chat;
 
 public sealed class JevChatService(
     JevAgentHandle handle,
     IJevRunStatus status,
-    ICodingStrategySelector selector)
+    ICodingStrategySelector selector,
+    ICodingHost host)
 {
     private AgentSession? _session;
 
@@ -20,6 +21,8 @@ public sealed class JevChatService(
     public bool UsesFallback => handle.UsesFallbackChatClient;
 
     public ICodingStrategySelector Selector => selector;
+
+    public ICodingHost Host => host;
 
     public IList<ChatTurn> Turns { get; } = [];
 

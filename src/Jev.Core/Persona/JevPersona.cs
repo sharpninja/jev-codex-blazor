@@ -1,9 +1,8 @@
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
 namespace Jev.Core.Persona;
 
-public sealed class JevPersona(IOptions<JevAgentOptions> options, IHostEnvironment hostEnvironment)
+public sealed class JevPersona(IOptions<JevAgentOptions> options)
 {
     public const string SystemFileName = "jev-system.md";
     public const string PoliciesFileName = "jev-policies.md";
@@ -33,9 +32,16 @@ public sealed class JevPersona(IOptions<JevAgentOptions> options, IHostEnvironme
     {
         foreach (var candidate in CandidateDirectories())
         {
-            if (File.Exists(Path.Combine(candidate, SystemFileName)))
+            try
             {
-                return candidate;
+                if (File.Exists(Path.Combine(candidate, SystemFileName)))
+                {
+                    return candidate;
+                }
+            }
+            catch (Exception ex) when (ex is UnauthorizedAccessException or NotSupportedException or IOException)
+            {
+                // WASM / sandboxed hosts cannot probe arbitrary paths.
             }
         }
 
@@ -50,9 +56,7 @@ public sealed class JevPersona(IOptions<JevAgentOptions> options, IHostEnvironme
         }
 
         yield return Path.Combine(AppContext.BaseDirectory, "prompts");
-        yield return Path.Combine(hostEnvironment.ContentRootPath, "prompts");
-        yield return Path.Combine(hostEnvironment.ContentRootPath, "..", "..", "prompts");
-        yield return Path.GetFullPath(Path.Combine(hostEnvironment.ContentRootPath, "..", "..", "..", "prompts"));
+        yield return Path.GetFullPath("prompts");
     }
 
     private const string EmbeddedSystem = """
@@ -65,6 +69,6 @@ public sealed class JevPersona(IOptions<JevAgentOptions> options, IHostEnvironme
         Use probe_coding_worker for availability questions.
         Use scaffold_hello_console for the hello-console demo.
         Use run_coding_task for other implementation work.
-        If Codex is missing, say so clearly and include the intended command.
+        If the selected worker is missing or not supported on this host, say so clearly and include the intended command.
         """;
 }

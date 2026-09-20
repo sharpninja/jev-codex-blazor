@@ -8,7 +8,8 @@ namespace Jev.Workers.Strategies;
 public sealed class ClineCodingStrategy(
     IOptions<ClineCliOptions> optionsAccessor,
     ICliProcessRunner processRunner,
-    ILogger<ClineCodingStrategy> logger) : ProcessCodingStrategy(processRunner, logger)
+    ILogger<ClineCodingStrategy> logger,
+    ICodingHost? host = null) : ProcessCodingStrategy(processRunner, logger, host)
 {
     private readonly ClineCliOptions _options = optionsAccessor.Value;
     private readonly ClineCommandBuilder _commands = new(optionsAccessor.Value);
