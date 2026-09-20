@@ -1,4 +1,5 @@
 using Jev.Codex;
+using Jev.Workers.Process;
 
 namespace Jev.Workers.Strategies;
 
@@ -54,11 +55,13 @@ public sealed class CodexCodingStrategy(
     {
         if (!_host.SupportsLocalCli)
         {
+            var unsupported = CodingHost.UnsupportedMessage(_host);
+            progress?.Report(new CodingProgress(CodingProgress.System, unsupported));
             return new CodingTaskResult
             {
                 Succeeded = false,
                 ExitCode = 126,
-                Error = CodingHost.UnsupportedMessage(_host),
+                Error = unsupported,
                 Strategy = DisplayName
             };
         }
@@ -74,7 +77,10 @@ public sealed class CodexCodingStrategy(
                 CreateWorkspaceIfMissing = request.CreateWorkspaceIfMissing,
                 Timeout = request.Timeout
             },
-            progress is null ? null : new Progress<CodexProgress>(item => progress.Report(new CodingProgress(item.Phase, item.Message))),
+            progress is null
+                ? null
+                : new Progress<CodexProgress>(item =>
+                    progress.Report(new CodingProgress(item.Phase, SecretSanitizer.Redact(item.Message)))),
             cancellationToken);
 
         return new CodingTaskResult

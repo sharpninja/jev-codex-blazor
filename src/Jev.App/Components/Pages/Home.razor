@@ -1,11 +1,12 @@
 @page "/"
-@using Jev.Core.Runtime
 @inject JevChatService Chat
+@inject IJSRuntime JS
+@implements IAsyncDisposable
 @implements IDisposable
 
 <PageTitle>Jev</PageTitle>
 
-<div class="app">
+<div class="app @(_showTranscript ? "with-cli" : null)">
     <aside class="rail">
         <div class="brand">
             <div class="mark" aria-hidden="true">J</div>
@@ -74,6 +75,16 @@
             {
                 <span class="detail">@Chat.Status.Detail</span>
             }
+            <span class="grow"></span>
+            <button type="button"
+                    class="status-toggle @(_showTranscript ? "active" : null)"
+                    @onclick="ToggleTranscript">
+                @(_showTranscript ? "Hide CLI transcript" : "Show CLI transcript")
+                @if (Chat.Transcript.Lines.Count > 0)
+                {
+                    <text> (@Chat.Transcript.Lines.Count)</text>
+                }
+            </button>
         </header>
 
         <section class="transcript" @ref="_transcript">
@@ -105,19 +116,6 @@
             }
         </section>
 
-        @if (Chat.Status.WorkerEvents.Count > 0)
-        {
-            <details class="codex-log" open>
-                <summary>@Chat.Status.ActiveStrategy progress</summary>
-                <ul>
-                    @foreach (var evt in Chat.Status.WorkerEvents.TakeLast(8))
-                    {
-                        <li><code>@evt.Phase</code> @evt.Message</li>
-                    }
-                </ul>
-            </details>
-        }
-
         <form class="composer" @onsubmit="SubmitAsync" @onsubmit:preventDefault="true">
             <textarea @bind="_draft"
                       @bind:event="oninput"
@@ -128,6 +126,39 @@
             <button type="submit" disabled="@(_busy || string.IsNullOrWhiteSpace(_draft))">Send</button>
         </form>
     </main>
+
+    @if (_showTranscript)
+    {
+        <aside class="cli-drawer" aria-label="CLI transcript">
+            <header>
+                <strong>CLI transcript</strong>
+                <div class="cli-drawer-actions">
+                    <label>
+                        <input type="checkbox" @bind="_pauseScroll" />
+                        Pause scroll
+                    </label>
+                    <button type="button" @onclick="ClearTranscript">Clear</button>
+                    <button type="button" @onclick="ToggleTranscript">Hide</button>
+                </div>
+            </header>
+            <ol class="cli-log" @ref="_cliLog">
+                @if (Chat.Transcript.Lines.Count == 0)
+                {
+                    <li class="cli-empty">Worker CLI input and output stream here while a strategy runs. Secrets are redacted.</li>
+                }
+                else
+                {
+                    @foreach (var line in Chat.Transcript.Lines)
+                    {
+                        <li class="cli-line @line.Channel.ToString().ToLowerInvariant()">
+                            <span class="cli-ch">@line.Channel.ToString().ToLowerInvariant()</span>
+                            <pre>@line.Text</pre>
+                        </li>
+                    }
+                }
+            </ol>
+        </aside>
+    }
 </div>
 
 @code {
@@ -140,8 +171,13 @@
 
     private string _draft = "";
     private bool _busy;
+    private bool _showTranscript;
+    private bool _pauseScroll;
     private ElementReference _transcript;
+    private ElementReference _cliLog;
+    private IJSObjectReference? _js;
     private CancellationTokenSource _cts = new();
+    private bool _disposed;
 
     private string PhaseLabel => Chat.Status.Phase switch
     {
@@ -214,8 +250,42 @@
 
     protected override async Task OnInitializedAsync()
     {
+        Chat.Transcript.Changed += OnTranscriptChanged;
         await Chat.EnsureProbedAsync(_cts.Token);
     }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                _js = await JS.InvokeAsync<IJSObjectReference>("import", "./_content/Jev.App/transcript.js");
+            }
+            catch (JSException)
+            {
+                _js = null;
+            }
+        }
+
+        if (_showTranscript && !_pauseScroll && _js is not null)
+        {
+            try
+            {
+                await _js.InvokeVoidAsync("scrollToEnd", _cliLog);
+            }
+            catch (JSException)
+            {
+            }
+        }
+    }
+
+    private void OnTranscriptChanged(object? sender, EventArgs e)
+        => _ = InvokeAsync(StateHasChanged);
+
+    private void ToggleTranscript() => _showTranscript = !_showTranscript;
+
+    private void ClearTranscript() => Chat.Transcript.Clear();
 
     private Task SubmitAsync() => SendAsync(_draft);
 
@@ -269,7 +339,23 @@
 
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        Chat.Transcript.Changed -= OnTranscriptChanged;
         _cts.Cancel();
         _cts.Dispose();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        Dispose();
+        if (_js is not null)
+        {
+            await _js.DisposeAsync();
+        }
     }
 }

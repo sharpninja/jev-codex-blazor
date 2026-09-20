@@ -8,5 +8,6 @@ public interface ICliProcessRunner
         ProcessStartInfo startInfo,
         string? standardInput,
         IProgress<string>? stdoutLine,
+        IProgress<string>? stderrLine,
         CancellationToken cancellationToken);
 }

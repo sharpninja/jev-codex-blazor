@@ -17,7 +17,7 @@ public sealed class CodexCliClient(
         try
         {
             var versionInfo = CreateStartInfo(_options.ExecutablePath, _commands.BuildVersionArguments(), Directory.GetCurrentDirectory());
-            var versionRun = await processRunner.RunAsync(versionInfo, standardInput: null, stdoutLine: null, cancellationToken);
+            var versionRun = await processRunner.RunAsync(versionInfo, standardInput: null, stdoutLine: null, stderrLine: null, cancellationToken);
             var version = (versionRun.Stdout + " " + versionRun.Stderr).Trim().ReplaceLineEndings(" ").Trim();
             if (versionRun.ExitCode != 0)
             {
@@ -31,7 +31,7 @@ public sealed class CodexCliClient(
             }
 
             var loginInfo = CreateStartInfo(_options.ExecutablePath, _commands.BuildLoginStatusArguments(), Directory.GetCurrentDirectory());
-            var loginRun = await processRunner.RunAsync(loginInfo, standardInput: null, stdoutLine: null, cancellationToken);
+            var loginRun = await processRunner.RunAsync(loginInfo, standardInput: null, stdoutLine: null, stderrLine: null, cancellationToken);
             var loggedIn = loginRun.ExitCode == 0;
             return new CodexAvailability
             {
@@ -69,6 +69,8 @@ public sealed class CodexCliClient(
         var events = new List<CodexJsonEvent>();
 
         progress?.Report(new CodexProgress("starting", $"Starting Codex in {workingDirectory}"));
+        progress?.Report(new CodexProgress("input", commandLine));
+        progress?.Report(new CodexProgress("input", "stdin: " + request.Prompt));
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(request.Timeout ?? TimeSpan.FromSeconds(Math.Max(5, _options.TimeoutSeconds)));
@@ -82,6 +84,7 @@ public sealed class CodexCliClient(
                 request.Prompt,
                 new Progress<string>(line =>
                 {
+                    progress?.Report(new CodexProgress("stdout", line));
                     var parsed = CodexJsonEventParser.TryParse(line);
                     if (parsed is null)
                     {
@@ -91,6 +94,7 @@ public sealed class CodexCliClient(
                     events.Add(parsed);
                     progress?.Report(ToProgress(parsed));
                 }),
+                new Progress<string>(line => progress?.Report(new CodexProgress("stderr", line))),
                 timeout.Token);
         }
         catch (CodexNotInstalledException ex)

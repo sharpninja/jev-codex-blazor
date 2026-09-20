@@ -8,6 +8,10 @@ internal sealed class RecordingStrategy : ICodingAgentStrategy
 
     public bool Probed { get; private set; }
 
+    public bool Unsupported { get; init; }
+
+    public IReadOnlyList<CodingProgress> ProgressToReport { get; init; } = [];
+
     public CodingStrategyKind Kind { get; init; } = CodingStrategyKind.Codex;
 
     public string DisplayName { get; init; } = "Codex";
@@ -19,6 +23,20 @@ internal sealed class RecordingStrategy : ICodingAgentStrategy
     public Task<CodingAvailability> ProbeAsync(CancellationToken cancellationToken = default)
     {
         Probed = true;
+        if (Unsupported)
+        {
+            return Task.FromResult(new CodingAvailability
+            {
+                Kind = Kind,
+                IsInstalled = false,
+                IsSupported = false,
+                IsLoggedIn = false,
+                ExecutablePath = ExecutablePath,
+                LoginCommand = LoginCommand,
+                Error = CodingHost.UnsupportedMessage(CodingHost.Restricted("wasm"))
+            });
+        }
+
         return Task.FromResult(new CodingAvailability
         {
             Kind = Kind,
@@ -34,7 +52,18 @@ internal sealed class RecordingStrategy : ICodingAgentStrategy
         CancellationToken cancellationToken = default)
     {
         Prompts.Add(request.Prompt);
-        progress?.Report(new CodingProgress("item.started", "fake worker running"));
+        if (ProgressToReport.Count == 0)
+        {
+            progress?.Report(new CodingProgress("item.started", "fake worker running"));
+        }
+        else
+        {
+            foreach (var item in ProgressToReport)
+            {
+                progress?.Report(item);
+            }
+        }
+
         return Task.FromResult(new CodingTaskResult
         {
             Succeeded = true,

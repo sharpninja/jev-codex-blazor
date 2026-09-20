@@ -164,6 +164,10 @@ Outputs under `artifacts/`:
 
 Install the Linux package with `sudo dpkg -i jev_0.1.0_amd64.deb`. The `.deb` depends on WebKitGTK (`libwebkit2gtk-4.1-0` or `libwebkit2gtk-4.0-37`).
 
+## CLI transcript
+
+The shared `Jev.App` chat UI has a togglable **CLI transcript** drawer (default collapsed) that sits beside the conversation. While Codex / Claude / Grok Build / Cline runs, it streams sanitized argv/stdin plus stdout/stderr (including JSONL) as lines arrive — not only the final result. Secrets such as API keys and bearer tokens are redacted. New conversation and strategy switch clear the log; pause-scroll is available when the panel is open. On WASM/Android the same panel shows the host-gated / not-supported message when a coding tool is attempted.
+
 ## Try a sample chat
 
 1. **Who are you?** — Jev answers from the persona layer. No worker process.

@@ -41,7 +41,7 @@ public abstract class ProcessCodingStrategy(
         try
         {
             var versionInfo = CreateStartInfo(ExecutablePath, BuildVersionArguments(), Directory.GetCurrentDirectory());
-            var versionRun = await processRunner.RunAsync(versionInfo, null, null, cancellationToken);
+            var versionRun = await processRunner.RunAsync(versionInfo, null, null, null, cancellationToken);
             var version = (versionRun.Stdout + " " + versionRun.Stderr).Trim().ReplaceLineEndings(" ");
             if (versionRun.ExitCode != 0)
             {
@@ -63,7 +63,7 @@ public abstract class ProcessCodingStrategy(
             }
 
             var authInfo = CreateStartInfo(ExecutablePath, authArgs, Directory.GetCurrentDirectory());
-            var authRun = await processRunner.RunAsync(authInfo, null, null, cancellationToken);
+            var authRun = await processRunner.RunAsync(authInfo, null, null, null, cancellationToken);
             var loggedIn = authRun.ExitCode == 0;
             return new CodingAvailability
             {
@@ -94,13 +94,21 @@ public abstract class ProcessCodingStrategy(
         ArgumentException.ThrowIfNullOrWhiteSpace(request.Prompt);
         if (!_host.SupportsLocalCli)
         {
-            return Failed(126, "", "", CodingHost.UnsupportedMessage(_host));
+            var unsupported = CodingHost.UnsupportedMessage(_host);
+            progress?.Report(new CodingProgress(CodingProgress.System, unsupported));
+            return Failed(126, "", "", unsupported);
         }
 
         var workingDirectory = WorkspacePath.Ensure(request.WorkingDirectory, DefaultWorkspaceRoot, request.CreateWorkspaceIfMissing);
         var arguments = BuildExecArguments(request, workingDirectory);
         var commandLine = CliCommandLine.Format(ExecutablePath, arguments);
-        progress?.Report(new CodingProgress("starting", $"Starting {DisplayName} in {workingDirectory}"));
+        var stdin = StandardInput(request);
+        progress?.Report(new CodingProgress(CodingProgress.Starting, $"Starting {DisplayName} in {workingDirectory}"));
+        progress?.Report(new CodingProgress(CodingProgress.Input, SecretSanitizer.Redact(commandLine)));
+        if (!string.IsNullOrEmpty(stdin))
+        {
+            progress?.Report(new CodingProgress(CodingProgress.Input, "stdin: " + SecretSanitizer.Redact(stdin)));
+        }
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(request.Timeout ?? TimeSpan.FromSeconds(Math.Max(5, TimeoutSeconds)));
@@ -111,8 +119,9 @@ public abstract class ProcessCodingStrategy(
             var startInfo = CreateStartInfo(ExecutablePath, arguments, workingDirectory);
             run = await processRunner.RunAsync(
                 startInfo,
-                StandardInput(request),
-                new Progress<string>(line => progress?.Report(new CodingProgress("stdout", line))),
+                stdin,
+                new Progress<string>(line => progress?.Report(new CodingProgress(CodingProgress.Stdout, SecretSanitizer.Redact(line)))),
+                new Progress<string>(line => progress?.Report(new CodingProgress(CodingProgress.Stderr, SecretSanitizer.Redact(line)))),
                 timeout.Token);
         }
         catch (CliExecutableNotFoundException ex)
