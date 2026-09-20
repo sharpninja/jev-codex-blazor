@@ -32,6 +32,10 @@ public sealed class CodexCommandBuilderTests
     }
 
     [Fact]
+    public void BuildLoginStatusArguments_uses_codex_login_status()
+        => Assert.Equal(["login", "status"], new CodexCommandBuilder(new CodexCliOptions()).BuildLoginStatusArguments());
+
+    [Fact]
     public void BuildExecArguments_clamps_dangerous_sandbox_unless_allowed()
     {
         var builder = new CodexCommandBuilder(new CodexCliOptions { AllowDangerousSandbox = false });

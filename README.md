@@ -12,6 +12,8 @@ Blazor chat UI
 
 The UI never talks to a CLI directly. Switching the active strategy (config, `JEV_CODING_STRATEGY`, or the sidebar) changes which worker the tools call.
 
+**Auth split:** coding workers use **subscription login only**. An optional OpenAI key, if present, is only for Jev's orchestration LLM — never for Codex, Claude, Grok, or Cline.
+
 ## Who is Jev?
 
 This repo does not consume an external "Jev" product spec. **Jev** here is a local coding-assistant persona:
@@ -38,20 +40,22 @@ Persona and policy text live in editable markdown:
 
 ## Coding-worker strategies
 
-| Strategy | CLI | Headless contract | Install / auth |
-| --- | --- | --- | --- |
-| **Codex** | `codex` | `codex exec --json --sandbox workspace-write --ask-for-approval never --skip-git-repo-check --cd <dir> -` (prompt on stdin) | [Codex CLI](https://developers.openai.com/codex/cli). `codex login` or `OPENAI_API_KEY`. |
-| **Claude** | `claude` | `claude --bare -p "<prompt>" --output-format json --permission-mode acceptEdits --allowedTools Read,Edit,Bash` (cwd = workspace) | [Claude Code CLI](https://code.claude.com/docs/en/headless). `claude login` or `ANTHROPIC_API_KEY` (`--bare` does not use subscription login). |
-| **GrokBuild** | `grok` | `grok -p "<prompt>" --output-format streaming-json --always-approve --cwd <dir>` | [Grok Build](https://x.ai/cli) / [docs](https://docs.x.ai/build/overview). `curl -fsSL https://x.ai/cli/install.sh \| bash`, then `grok login` or `XAI_API_KEY`. |
-| **Cline** | `cline` | `cline --json --yolo --auto-approve true --cwd <dir> --timeout <sec> "<prompt>"` | [Cline CLI](https://docs.cline.bot/cli/cli-reference). `npm i -g cline`, then `cline auth` or `-P` / `-k` / provider env vars. |
+Each worker authenticates with a **vendor subscription login**. This repo does not require or prefer API keys for these CLIs.
 
-Each adapter probes with `--version`, captures stdout/stderr, and returns a structured not-installed result (exit 127) when the binary is missing. No fake package versions are invented; the contracts above match current public CLI docs.
+| Strategy | CLI | Headless contract | Subscription login | Session probe |
+| --- | --- | --- | --- | --- |
+| **Codex** | `codex` | `codex exec --json --sandbox workspace-write --ask-for-approval never --skip-git-repo-check --cd <dir> -` (prompt on stdin) | [Codex CLI](https://developers.openai.com/codex/cli): `codex login` (ChatGPT). Do not use `OPENAI_API_KEY` for Codex. | `codex login status` (exit 0 when signed in) |
+| **Claude** | `claude` | `claude -p "<prompt>" --output-format json --permission-mode acceptEdits --allowedTools Read,Edit,Bash` (cwd = workspace) | [Claude Code](https://code.claude.com/docs/en/authentication): `claude auth login` (Claude Pro/Max/Team/Enterprise). Do **not** pass `--bare` — that skips OAuth and wants an API key. | `claude auth status` (exit 0 when signed in) |
+| **GrokBuild** | `grok` | `grok -p "<prompt>" --output-format streaming-json --always-approve --cwd <dir>` | [Grok Build](https://docs.x.ai/build/cli/reference): `grok login` (SuperGrok / X Premium+). Headless: `grok login --device-auth`. | No public status command — run `grok login` once. |
+| **Cline** | `cline` | `cline --json --yolo --auto-approve true --cwd <dir> --timeout <sec> "<prompt>"` | [Cline CLI](https://docs.cline.bot/getting-started/authorizing-with-cline): `cline auth` (or `cline a`) and choose **Sign in with Cline** / ClinePass. Default provider is `cline` (subscription). | No public status command — run `cline auth` once; `cline config` inspects the saved session. |
+
+Probes first run `--version`. When the CLI exposes a login-status command, a failed status is reported as **not logged in** (separate from **not installed**). Run failures that look like auth errors point at the same login command. No fake package versions are invented; the contracts above match current public CLI docs.
 
 ## Prerequisites
 
 1. **.NET 10 SDK** (this repo targets `net10.0`; developed against SDK `10.0.401`).
-2. **At least one coding-worker CLI** on `PATH` if you want real file edits. The app still runs and chats when none are installed.
-3. **Optional OpenAI API key** for the Jev orchestration model. If unset, Jev uses a local fallback router that still emits Agent Framework function calls into the selected strategy.
+2. **At least one coding-worker CLI** on `PATH`, then its **subscription login** (table above), if you want real file edits. The app still runs and chats when none are installed.
+3. **Optional orchestration LLM** for Jev's Agent Framework chat client (`OpenAI:ApiKey` / `OPENAI_API_KEY`). If unset, Jev uses a local fallback router that still emits function calls into the selected strategy. This key is **not** used by the coding workers.
 
 ## Configure and switch
 
@@ -59,22 +63,30 @@ Copy [`.env.example`](.env.example) or use user secrets:
 
 ```bash
 cd src/Jev.Web
-dotnet user-secrets set "OpenAI:ApiKey" "<your-key>"
+# Optional — Jev orchestration LLM only. Not used by coding workers.
+dotnet user-secrets set "OpenAI:ApiKey" "<orchestration-key>"
 dotnet user-secrets set "Jev:CodingStrategy" "Claude"
+```
+
+Then sign the worker in from a terminal (once per machine):
+
+```bash
+codex login           # ChatGPT subscription
+claude auth login     # Claude subscription
+grok login            # SuperGrok / X Premium+
+cline auth            # Cline / ClinePass
 ```
 
 | Variable / key | Purpose |
 | --- | --- |
 | `Jev:CodingStrategy` / `JEV_CODING_STRATEGY` | `Codex` (default), `Claude`, `GrokBuild`, or `Cline` |
-| `OPENAI_API_KEY` / `OPENAI_MODEL` | Jev orchestration LLM |
+| `OPENAI_API_KEY` / `OPENAI_MODEL` | Optional Jev **orchestration** LLM only |
 | `CODEX_EXECUTABLE` | Codex binary (default `codex`) |
 | `CLAUDE_EXECUTABLE` | Claude Code binary (default `claude`) |
 | `GROK_EXECUTABLE` | Grok Build binary (default `grok`) |
 | `CLINE_EXECUTABLE` | Cline binary (default `cline`) |
-| `ANTHROPIC_API_KEY` | Claude Code / Cline Anthropic provider |
-| `XAI_API_KEY` | Grok Build |
 
-In the Blazor sidebar, the four strategies are listed with ready/missing probes. Switching starts a new conversation so history from one worker is not reused with another.
+In the Blazor sidebar, the four strategies are listed with missing / login / ready badges. Tooltips show the subscription login command. Switching starts a new conversation so history from one worker is not reused with another.
 
 Do not commit secrets. `appsettings.json` only has empty placeholders.
 
@@ -92,10 +104,10 @@ Open the printed HTTP URL (launch profile defaults to `http://localhost:5296`).
 ## Try a sample chat
 
 1. **Who are you?** — Jev answers from the persona layer. No worker process.
-2. **Is the coding worker available?** — Agent Framework calls `probe_coding_worker` on the active strategy.
+2. **Is the coding worker available?** — Agent Framework calls `probe_coding_worker` on the active strategy (install + login when the CLI exposes it).
 3. **Scaffold a hello console app in a temp workspace** — Agent Framework calls `scaffold_hello_console`, which runs the selected strategy's headless command in a temp workspace.
 
-If the selected CLI is not installed, the tool fails clearly and Jev reports the intended command — it does not invent files.
+If the selected CLI is not installed or not logged in, the tool fails clearly and Jev reports the intended command — it does not invent files.
 
 ## Architecture notes
 
@@ -110,7 +122,7 @@ Jev is a `ChatClientAgent` created with `IChatClient.AsAIAgent(...)`, `AgentSess
 
 ### Fallback orchestration
 
-When `OPENAI_API_KEY` is empty, `FallbackJevChatClient` implements `IChatClient` and chooses tools via `JevIntentRouter`. `ChatClientAgent` still wraps it with function invocation.
+When the optional orchestration key is empty, `FallbackJevChatClient` implements `IChatClient` and chooses tools via `JevIntentRouter`. `ChatClientAgent` still wraps it with function invocation. Coding-worker auth is unchanged: subscription login on the selected CLI.
 
 ## License
 

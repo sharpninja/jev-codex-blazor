@@ -16,6 +16,10 @@ public interface IJevRunStatus
 
     bool WorkerInstalled { get; }
 
+    bool? WorkerLoggedIn { get; }
+
+    string? WorkerLoginCommand { get; }
+
     string? WorkerVersion { get; }
 
     void SetPhase(JevPhase phase, string? detail = null);
@@ -26,5 +30,5 @@ public interface IJevRunStatus
 
     void SetActiveStrategy(string strategy);
 
-    void SetWorkerAvailability(bool installed, string? version);
+    void SetWorkerAvailability(bool installed, string? version, bool? loggedIn = null, string? loginCommand = null);
 }

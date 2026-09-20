@@ -63,6 +63,27 @@ public sealed class CodexCliClientTests
         var availability = await CreateClient(runner).ProbeAsync();
         Assert.False(availability.IsInstalled);
         Assert.Contains("not found", availability.FormatForAgent(), StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("codex login", availability.LoginCommand);
+    }
+
+    [Fact]
+    public async Task ProbeAsync_reports_installed_but_not_logged_in()
+    {
+        var runner = new ScriptedProcessRunner(start =>
+        {
+            if (start.ArgumentList.Contains("status"))
+            {
+                return new ProcessRunResult { ExitCode = 1, Stderr = "Not logged in" };
+            }
+
+            return new ProcessRunResult { ExitCode = 0, Stdout = "codex-cli 0.50.0" };
+        });
+
+        var availability = await CreateClient(runner).ProbeAsync();
+        Assert.True(availability.IsInstalled);
+        Assert.False(availability.IsLoggedIn);
+        Assert.Contains("codex login", availability.FormatForAgent(), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ChatGPT", availability.FormatForAgent(), StringComparison.OrdinalIgnoreCase);
     }
 
     private static CodexCliClient CreateClient(ICodexProcessRunner runner)

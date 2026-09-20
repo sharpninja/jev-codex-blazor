@@ -28,4 +28,8 @@ public sealed class GrokBuildCommandBuilderTests
             ],
             args);
     }
+
+    [Fact]
+    public void BuildAuthStatusArguments_is_absent_because_grok_has_no_status_command()
+        => Assert.Null(new GrokBuildCommandBuilder(new GrokBuildCliOptions()).BuildAuthStatusArguments());
 }

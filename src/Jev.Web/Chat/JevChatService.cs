@@ -119,7 +119,11 @@ public sealed class JevChatService(
     {
         if (selector.Availability.TryGetValue(selector.ActiveKind, out var availability))
         {
-            status.SetWorkerAvailability(availability.IsInstalled, availability.Version ?? availability.Error);
+            status.SetWorkerAvailability(
+                availability.IsInstalled,
+                availability.IsLoggedIn == false ? availability.Error : availability.Version ?? availability.Error,
+                availability.IsLoggedIn,
+                availability.LoginCommand);
         }
 
         status.SetActiveStrategy(selector.Active.DisplayName);

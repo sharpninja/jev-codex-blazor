@@ -25,8 +25,8 @@
             </div>
             <div>
                 <dt>Active worker</dt>
-                <dd class="@(Chat.Status.WorkerInstalled ? "ok" : "warn")" title="@Chat.Status.WorkerVersion">
-                    @Chat.Status.ActiveStrategy — @(Chat.Status.WorkerInstalled ? Chat.Status.WorkerVersion ?? "available" : "not installed")
+                <dd class="@(ActiveWorkerOk ? "ok" : "warn")" title="@ActiveWorkerTitle">
+                    @Chat.Status.ActiveStrategy — @ActiveWorkerLabel
                 </dd>
             </div>
             <div>
@@ -39,14 +39,15 @@
             <span class="strategies-label">Coding worker</span>
             @foreach (var strategy in Chat.Selector.All)
             {
-                var installed = Chat.Selector.Availability.TryGetValue(strategy.Kind, out var availability) && availability.IsInstalled;
+                var availability = Chat.Selector.Availability.TryGetValue(strategy.Kind, out var probed) ? probed : null;
+                var badge = StrategyBadge(availability);
                 <button type="button"
                         class="strategy @(strategy.Kind == Chat.Selector.ActiveKind ? "active" : null)"
                         disabled="@_busy"
-                        title="@strategy.ExecutablePath"
+                        title="@($"{strategy.ExecutablePath} — subscription: {strategy.LoginCommand}")"
                         @onclick="() => SwitchAsync(strategy.Kind)">
                     <strong>@strategy.DisplayName</strong>
-                    <small class="@(installed ? "ok" : "warn")">@(installed ? "ready" : "missing")</small>
+                    <small class="@badge.Css">@badge.Label</small>
                 </button>
             }
         </div>
@@ -54,6 +55,8 @@
         <p class="lede">
             Chat with Jev. Implementation work is delegated to the selected coding
             worker through Microsoft Agent Framework tools — this UI never calls a CLI directly.
+            Workers use subscription login (<code>codex login</code>, <code>claude auth login</code>,
+            <code>grok login</code>, <code>cline auth</code>), not API keys.
         </p>
 
         <button class="ghost" type="button" @onclick="ResetAsync">New conversation</button>
@@ -143,6 +146,47 @@
         JevPhase.Error => "error",
         _ => "ready"
     };
+
+    private bool ActiveWorkerOk => Chat.Status.WorkerInstalled && Chat.Status.WorkerLoggedIn != false;
+
+    private string ActiveWorkerLabel
+    {
+        get
+        {
+            if (!Chat.Status.WorkerInstalled)
+            {
+                return "not installed";
+            }
+
+            if (Chat.Status.WorkerLoggedIn == false)
+            {
+                return string.IsNullOrWhiteSpace(Chat.Status.WorkerLoginCommand)
+                    ? "not logged in"
+                    : $"not logged in — {Chat.Status.WorkerLoginCommand}";
+            }
+
+            return Chat.Status.WorkerVersion ?? "available";
+        }
+    }
+
+    private string ActiveWorkerTitle => Chat.Status.WorkerLoginCommand is { Length: > 0 } login
+        ? $"{Chat.Status.WorkerVersion} — subscription: {login}"
+        : Chat.Status.WorkerVersion ?? "";
+
+    private static (string Css, string Label) StrategyBadge(CodingAvailability? availability)
+    {
+        if (availability is null || !availability.IsInstalled)
+        {
+            return ("warn", "missing");
+        }
+
+        if (availability.IsLoggedIn == false)
+        {
+            return ("warn", "login");
+        }
+
+        return ("ok", "ready");
+    }
 
     private string PhaseClass => Chat.Status.Phase switch
     {

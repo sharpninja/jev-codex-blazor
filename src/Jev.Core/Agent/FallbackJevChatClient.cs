@@ -5,9 +5,10 @@ using Microsoft.Extensions.AI;
 namespace Jev.Core.Agent;
 
 /// <summary>
-/// Local IChatClient used when no OpenAI key is configured. It still participates
-/// in Microsoft Agent Framework: ChatClientAgent + FunctionInvokingChatClient
-/// invoke Jev's Codex tools from the function calls this client emits.
+/// Local IChatClient used when no orchestration LLM key is configured. It still
+/// participates in Microsoft Agent Framework: ChatClientAgent + FunctionInvokingChatClient
+/// invoke Jev's coding-worker tools from the function calls this client emits.
+/// Worker CLIs authenticate with subscriptions, not this key.
 /// </summary>
 public sealed class FallbackJevChatClient : IChatClient
 {
@@ -100,9 +101,11 @@ public sealed class FallbackJevChatClient : IChatClient
         var suffix = body.Contains("not found", StringComparison.OrdinalIgnoreCase)
                      || body.Contains("did not complete", StringComparison.OrdinalIgnoreCase)
                      || body.Contains("not available", StringComparison.OrdinalIgnoreCase)
+                     || body.Contains("not logged in", StringComparison.OrdinalIgnoreCase)
+                     || body.Contains("not signed in", StringComparison.OrdinalIgnoreCase)
             ? """
 
-              If that coding worker is not installed, install its CLI, put it on PATH, select it in the sidebar, and retry. I will not pretend the files were written.
+              If that coding worker is not installed, install its CLI and put it on PATH. If it is installed but not signed in, run its subscription login once (codex login, claude auth login, grok login, or cline auth). I will not pretend the files were written.
               """
             : "";
 
@@ -126,7 +129,7 @@ public sealed class FallbackJevChatClient : IChatClient
         {
             return """
                 I'm Jev — a coding-assistant emulation layer. I plan and explain; the selected coding worker (Codex, Claude Code, Grok Build, or Cline) does the file and tool work.
-                This turn is using the local fallback router because no OpenAI API key is configured for Agent Framework orchestration.
+                This turn is using the local fallback router because no orchestration LLM key is configured. That key is only for Jev's Agent Framework chat client — coding workers use subscription login, not API keys.
                 """;
         }
 
@@ -138,6 +141,6 @@ public sealed class FallbackJevChatClient : IChatClient
                 """;
         }
 
-        return "I would call a Codex tool for that, but the tool is not registered on this agent.";
+        return "I would call a coding-worker tool for that, but the tool is not registered on this agent.";
     }
 }

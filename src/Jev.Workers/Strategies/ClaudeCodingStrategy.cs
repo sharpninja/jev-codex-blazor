@@ -25,6 +25,8 @@ public sealed class ClaudeCodingStrategy(
 
     protected override IReadOnlyList<string> BuildVersionArguments() => _commands.BuildVersionArguments();
 
+    protected override IReadOnlyList<string>? BuildAuthStatusArguments() => _commands.BuildAuthStatusArguments();
+
     protected override IReadOnlyList<string> BuildExecArguments(CodingTaskRequest request, string workingDirectory)
         => _commands.BuildPrintArguments(request);
 }

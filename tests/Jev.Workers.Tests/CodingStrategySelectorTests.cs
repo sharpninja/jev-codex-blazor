@@ -46,6 +46,8 @@ public sealed class CodingStrategySelectorTests
 
         public string ExecutablePath => Kind.ToString().ToLowerInvariant();
 
+        public string LoginCommand => SubscriptionAuth.LoginCommand(Kind);
+
         public bool Installed { get; set; }
 
         public bool Probed { get; private set; }

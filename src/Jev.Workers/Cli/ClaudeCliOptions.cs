@@ -14,8 +14,6 @@ public sealed class ClaudeCliOptions
 
     public string OutputFormat { get; set; } = "json";
 
-    public bool Bare { get; set; } = true;
-
     public int TimeoutSeconds { get; set; } = 300;
 
     public string? DefaultWorkspaceRoot { get; set; }

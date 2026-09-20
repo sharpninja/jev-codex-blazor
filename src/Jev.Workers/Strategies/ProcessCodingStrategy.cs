@@ -14,11 +14,15 @@ public abstract class ProcessCodingStrategy(
 
     public abstract string ExecutablePath { get; }
 
+    public string LoginCommand => SubscriptionAuth.LoginCommand(Kind);
+
     protected abstract int TimeoutSeconds { get; }
 
     protected abstract string? DefaultWorkspaceRoot { get; }
 
     protected abstract IReadOnlyList<string> BuildVersionArguments();
+
+    protected abstract IReadOnlyList<string>? BuildAuthStatusArguments();
 
     protected abstract IReadOnlyList<string> BuildExecArguments(CodingTaskRequest request, string workingDirectory);
 
@@ -28,17 +32,40 @@ public abstract class ProcessCodingStrategy(
     {
         try
         {
-            var startInfo = CreateStartInfo(ExecutablePath, BuildVersionArguments(), Directory.GetCurrentDirectory());
-            var run = await processRunner.RunAsync(startInfo, null, null, cancellationToken);
-            var version = (run.Stdout + " " + run.Stderr).Trim().ReplaceLineEndings(" ");
-            var installed = run.ExitCode == 0;
+            var versionInfo = CreateStartInfo(ExecutablePath, BuildVersionArguments(), Directory.GetCurrentDirectory());
+            var versionRun = await processRunner.RunAsync(versionInfo, null, null, cancellationToken);
+            var version = (versionRun.Stdout + " " + versionRun.Stderr).Trim().ReplaceLineEndings(" ");
+            if (versionRun.ExitCode != 0)
+            {
+                return Missing($"'{ExecutablePath} --version' exited {versionRun.ExitCode}.");
+            }
+
+            var authArgs = BuildAuthStatusArguments();
+            if (authArgs is null)
+            {
+                return new CodingAvailability
+                {
+                    Kind = Kind,
+                    IsInstalled = true,
+                    IsLoggedIn = null,
+                    Version = string.IsNullOrWhiteSpace(version) ? null : version,
+                    ExecutablePath = ExecutablePath,
+                    LoginCommand = this.LoginCommand
+                };
+            }
+
+            var authInfo = CreateStartInfo(ExecutablePath, authArgs, Directory.GetCurrentDirectory());
+            var authRun = await processRunner.RunAsync(authInfo, null, null, cancellationToken);
+            var loggedIn = authRun.ExitCode == 0;
             return new CodingAvailability
             {
                 Kind = Kind,
-                IsInstalled = installed,
+                IsInstalled = true,
+                IsLoggedIn = loggedIn,
                 Version = string.IsNullOrWhiteSpace(version) ? null : version,
                 ExecutablePath = ExecutablePath,
-                Error = installed ? null : $"'{ExecutablePath} --version' exited {run.ExitCode}."
+                LoginCommand = this.LoginCommand,
+                Error = loggedIn ? null : SubscriptionAuth.NotLoggedInMessage(Kind, DisplayName)
             };
         }
         catch (CliExecutableNotFoundException ex)
@@ -90,14 +117,21 @@ public abstract class ProcessCodingStrategy(
         }
 
         var (text, session) = JsonOutputReader.Extract(run.Stdout);
+        var combined = $"{run.Stderr}{Environment.NewLine}{text}";
         var succeeded = run.ExitCode == 0;
+        var error = succeeded
+            ? null
+            : SubscriptionAuth.LooksLikeAuthFailure(combined)
+                ? SubscriptionAuth.NotLoggedInMessage(Kind, DisplayName)
+                : (string.IsNullOrWhiteSpace(run.Stderr) ? $"{DisplayName} exited {run.ExitCode}." : run.Stderr.Trim());
+
         return new CodingTaskResult
         {
             Succeeded = succeeded,
             ExitCode = run.ExitCode,
             SessionId = session,
             FinalMessage = string.IsNullOrWhiteSpace(text) ? null : text,
-            Error = succeeded ? null : (string.IsNullOrWhiteSpace(run.Stderr) ? $"{DisplayName} exited {run.ExitCode}." : run.Stderr.Trim()),
+            Error = error,
             CommandLine = commandLine,
             WorkingDirectory = workingDirectory,
             Strategy = DisplayName,
@@ -110,7 +144,9 @@ public abstract class ProcessCodingStrategy(
         {
             Kind = Kind,
             IsInstalled = false,
+            IsLoggedIn = false,
             ExecutablePath = ExecutablePath,
+            LoginCommand = this.LoginCommand,
             Error = error
         };
 

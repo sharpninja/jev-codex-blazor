@@ -4,16 +4,17 @@ public sealed class ClaudeCommandBuilder(ClaudeCliOptions options)
 {
     public IReadOnlyList<string> BuildVersionArguments() => ["--version"];
 
+    public IReadOnlyList<string> BuildAuthStatusArguments() => ["auth", "status"];
+
     public IReadOnlyList<string> BuildPrintArguments(CodingTaskRequest request)
     {
-        var args = new List<string>();
-        if (options.Bare)
+        // Headless print uses the stored Claude subscription session from
+        // `claude auth login`. Do not pass --bare: that skips OAuth and wants an API key.
+        var args = new List<string>
         {
-            args.Add("--bare");
-        }
-
-        args.Add("-p");
-        args.Add(request.Prompt);
+            "-p",
+            request.Prompt
+        };
         args.Add("--output-format");
         args.Add(options.OutputFormat);
 

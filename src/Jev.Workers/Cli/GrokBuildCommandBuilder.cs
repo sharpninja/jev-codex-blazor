@@ -4,6 +4,9 @@ public sealed class GrokBuildCommandBuilder(GrokBuildCliOptions options)
 {
     public IReadOnlyList<string> BuildVersionArguments() => ["--version"];
 
+    /// <summary>Grok Build has <c>grok login</c> / <c>grok logout</c> but no login-status command.</summary>
+    public IReadOnlyList<string>? BuildAuthStatusArguments() => null;
+
     public IReadOnlyList<string> BuildPrintArguments(CodingTaskRequest request, string workingDirectory)
     {
         var args = new List<string>

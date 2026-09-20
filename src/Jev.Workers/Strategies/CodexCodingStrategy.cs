@@ -11,6 +11,8 @@ public sealed class CodexCodingStrategy(ICodexCli codex, Microsoft.Extensions.Op
 
     public string ExecutablePath => options.Value.ExecutablePath;
 
+    public string LoginCommand => CodexAvailability.LoginCommandText;
+
     public async Task<CodingAvailability> ProbeAsync(CancellationToken cancellationToken = default)
     {
         var availability = await codex.ProbeAsync(cancellationToken);
@@ -18,8 +20,10 @@ public sealed class CodexCodingStrategy(ICodexCli codex, Microsoft.Extensions.Op
         {
             Kind = Kind,
             IsInstalled = availability.IsInstalled,
+            IsLoggedIn = availability.IsLoggedIn,
             Version = availability.Version,
             ExecutablePath = availability.ExecutablePath,
+            LoginCommand = availability.LoginCommand,
             Error = availability.Error
         };
     }

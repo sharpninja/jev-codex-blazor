@@ -22,6 +22,49 @@ public sealed class ProcessCodingStrategyTests
         Assert.False(availability.IsInstalled);
         Assert.Equal(CodingStrategyKind.Claude, availability.Kind);
         Assert.Contains("claude", availability.FormatForAgent(), StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("claude auth login", availability.LoginCommand);
+    }
+
+    [Fact]
+    public async Task Claude_probe_separates_installed_from_not_logged_in()
+    {
+        var runner = new ScriptedRunner(start =>
+        {
+            if (start.ArgumentList.Contains("status"))
+            {
+                return new CliProcessRunResult { ExitCode = 1, Stderr = "not logged in" };
+            }
+
+            return new CliProcessRunResult { ExitCode = 0, Stdout = "2.1.0" };
+        });
+        var strategy = new ClaudeCodingStrategy(
+            Options.Create(new ClaudeCliOptions { ExecutablePath = "claude" }),
+            runner,
+            NullLogger<ClaudeCodingStrategy>.Instance);
+
+        var availability = await strategy.ProbeAsync();
+        Assert.True(availability.IsInstalled);
+        Assert.False(availability.IsLoggedIn);
+        Assert.False(availability.IsReady);
+        Assert.Contains("claude auth login", availability.FormatForAgent(), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("ANTHROPIC_API_KEY", availability.FormatForAgent(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GrokBuild_probe_is_installed_without_inventing_a_status_command()
+    {
+        var runner = new ScriptedRunner(_ => new CliProcessRunResult { ExitCode = 0, Stdout = "grok 0.1" });
+        var strategy = new GrokBuildCodingStrategy(
+            Options.Create(new GrokBuildCliOptions { ExecutablePath = "grok" }),
+            runner,
+            NullLogger<GrokBuildCodingStrategy>.Instance);
+
+        var availability = await strategy.ProbeAsync();
+        Assert.True(availability.IsInstalled);
+        Assert.Null(availability.IsLoggedIn);
+        Assert.Equal("grok login", availability.LoginCommand);
+        Assert.Contains("grok login", availability.FormatForAgent(), StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("--version", string.Join(' ', runner.LastStartInfo!.ArgumentList));
     }
 
     [Fact]
@@ -70,6 +113,30 @@ public sealed class ProcessCodingStrategyTests
         Assert.Equal(127, result.ExitCode);
         Assert.Contains("cline", result.CommandLine);
         Assert.Contains("--yolo", result.CommandLine);
+    }
+
+    [Fact]
+    public async Task Claude_run_maps_auth_failure_to_subscription_login()
+    {
+        var runner = new ScriptedRunner(_ => new CliProcessRunResult
+        {
+            ExitCode = 1,
+            Stderr = "Error: please sign in"
+        });
+        var strategy = new ClaudeCodingStrategy(
+            Options.Create(new ClaudeCliOptions { ExecutablePath = "claude" }),
+            runner,
+            NullLogger<ClaudeCodingStrategy>.Instance);
+
+        var result = await strategy.RunAsync(new CodingTaskRequest
+        {
+            Prompt = "hello",
+            WorkingDirectory = Path.GetTempPath()
+        });
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("claude auth login", result.Error, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("--bare", result.CommandLine);
     }
 
     private sealed class ScriptedRunner : ICliProcessRunner

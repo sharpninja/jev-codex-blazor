@@ -14,6 +14,8 @@ internal sealed class RecordingStrategy : ICodingAgentStrategy
 
     public string ExecutablePath => "codex";
 
+    public string LoginCommand => "codex login";
+
     public Task<CodingAvailability> ProbeAsync(CancellationToken cancellationToken = default)
     {
         Probed = true;

@@ -4,6 +4,9 @@ public sealed class ClineCommandBuilder(ClineCliOptions options)
 {
     public IReadOnlyList<string> BuildVersionArguments() => ["--version"];
 
+    /// <summary>Cline signs in with <c>cline auth</c>; there is no documented non-interactive status command.</summary>
+    public IReadOnlyList<string>? BuildAuthStatusArguments() => null;
+
     public IReadOnlyList<string> BuildTaskArguments(CodingTaskRequest request, string workingDirectory)
     {
         var args = new List<string>();

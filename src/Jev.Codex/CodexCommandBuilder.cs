@@ -54,6 +54,8 @@ public sealed class CodexCommandBuilder(CodexCliOptions options)
 
     public IReadOnlyList<string> BuildVersionArguments() => ["--version"];
 
+    public IReadOnlyList<string> BuildLoginStatusArguments() => ["login", "status"];
+
     public static string FormatCommandLine(string executable, IEnumerable<string> arguments)
         => string.Join(' ', new[] { executable }.Concat(arguments).Select(Quote));
 

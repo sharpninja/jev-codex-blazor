@@ -17,6 +17,10 @@ public sealed class JevRunStatus : IJevRunStatus
 
     public bool WorkerInstalled { get; private set; }
 
+    public bool? WorkerLoggedIn { get; private set; }
+
+    public string? WorkerLoginCommand { get; private set; }
+
     public string? WorkerVersion { get; private set; }
 
     public IReadOnlyList<CodingProgress> WorkerEvents
@@ -65,9 +69,11 @@ public sealed class JevRunStatus : IJevRunStatus
 
     public void SetActiveStrategy(string strategy) => ActiveStrategy = strategy;
 
-    public void SetWorkerAvailability(bool installed, string? version)
+    public void SetWorkerAvailability(bool installed, string? version, bool? loggedIn = null, string? loginCommand = null)
     {
         WorkerInstalled = installed;
+        WorkerLoggedIn = loggedIn;
+        WorkerLoginCommand = loginCommand;
         WorkerVersion = version;
     }
 }

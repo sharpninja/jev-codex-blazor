@@ -10,13 +10,17 @@ public sealed class JevCodingTools(ICodingStrategySelector selector, IJevRunStat
     public const string RunCodingTaskName = "run_coding_task";
     public const string ScaffoldHelloConsoleName = "scaffold_hello_console";
 
-    [Description("Check whether the selected coding-worker CLI (Codex, Claude Code, Grok Build, or Cline) is installed.")]
+    [Description("Check whether the selected coding-worker CLI (Codex, Claude Code, Grok Build, or Cline) is installed and signed in with a subscription (codex login / claude auth login / grok login / cline auth).")]
     public async Task<string> ProbeCodingWorkerAsync(CancellationToken cancellationToken)
     {
         var worker = selector.Active;
         status.SetPhase(JevPhase.RunningWorker, $"Probing {worker.DisplayName}");
         var availability = await worker.ProbeAsync(cancellationToken);
-        status.SetWorkerAvailability(availability.IsInstalled, availability.Version);
+        status.SetWorkerAvailability(
+            availability.IsInstalled,
+            availability.Version,
+            availability.IsLoggedIn,
+            availability.LoginCommand);
         return availability.FormatForAgent();
     }
 

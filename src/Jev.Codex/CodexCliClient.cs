@@ -14,19 +14,34 @@ public sealed class CodexCliClient(
 
     public async Task<CodexAvailability> ProbeAsync(CancellationToken cancellationToken = default)
     {
-        var startInfo = CreateStartInfo(_options.ExecutablePath, _commands.BuildVersionArguments(), Directory.GetCurrentDirectory());
-
         try
         {
-            var run = await processRunner.RunAsync(startInfo, standardInput: null, stdoutLine: null, cancellationToken);
-            var version = (run.Stdout + " " + run.Stderr).Trim();
-            var installed = run.ExitCode == 0;
+            var versionInfo = CreateStartInfo(_options.ExecutablePath, _commands.BuildVersionArguments(), Directory.GetCurrentDirectory());
+            var versionRun = await processRunner.RunAsync(versionInfo, standardInput: null, stdoutLine: null, cancellationToken);
+            var version = (versionRun.Stdout + " " + versionRun.Stderr).Trim().ReplaceLineEndings(" ").Trim();
+            if (versionRun.ExitCode != 0)
+            {
+                return new CodexAvailability
+                {
+                    IsInstalled = false,
+                    IsLoggedIn = false,
+                    ExecutablePath = _options.ExecutablePath,
+                    Error = $"'{_options.ExecutablePath} --version' exited {versionRun.ExitCode}."
+                };
+            }
+
+            var loginInfo = CreateStartInfo(_options.ExecutablePath, _commands.BuildLoginStatusArguments(), Directory.GetCurrentDirectory());
+            var loginRun = await processRunner.RunAsync(loginInfo, standardInput: null, stdoutLine: null, cancellationToken);
+            var loggedIn = loginRun.ExitCode == 0;
             return new CodexAvailability
             {
-                IsInstalled = installed,
-                Version = string.IsNullOrWhiteSpace(version) ? null : version.ReplaceLineEndings(" ").Trim(),
+                IsInstalled = true,
+                IsLoggedIn = loggedIn,
+                Version = string.IsNullOrWhiteSpace(version) ? null : version,
                 ExecutablePath = _options.ExecutablePath,
-                Error = installed ? null : $"'{_options.ExecutablePath} --version' exited {run.ExitCode}."
+                Error = loggedIn
+                    ? null
+                    : $"Run `{CodexAvailability.LoginCommandText}` once with a ChatGPT subscription. Do not set OPENAI_API_KEY for Codex."
             };
         }
         catch (CodexNotInstalledException ex)
@@ -34,6 +49,7 @@ public sealed class CodexCliClient(
             return new CodexAvailability
             {
                 IsInstalled = false,
+                IsLoggedIn = false,
                 ExecutablePath = _options.ExecutablePath,
                 Error = ex.Message
             };
@@ -119,6 +135,12 @@ public sealed class CodexCliClient(
         var finalMessage = CodexJsonEventParser.LastAgentMessage(events)
             ?? (events.Count == 0 ? run.Stdout.Trim() : null);
         var succeeded = run.ExitCode == 0 && parsedError is null;
+        var combined = $"{parsedError}{Environment.NewLine}{run.Stderr}{Environment.NewLine}{finalMessage}";
+        var error = succeeded
+            ? null
+            : LooksLikeAuthFailure(combined)
+                ? $"Codex is not signed in. Run `{CodexAvailability.LoginCommandText}` once with a ChatGPT subscription. Do not set OPENAI_API_KEY for Codex."
+                : parsedError ?? $"codex exited {run.ExitCode}.";
 
         return new CodexExecResult
         {
@@ -126,7 +148,7 @@ public sealed class CodexCliClient(
             ExitCode = run.ExitCode,
             ThreadId = CodexJsonEventParser.FirstThreadId(events),
             FinalMessage = string.IsNullOrWhiteSpace(finalMessage) ? null : finalMessage,
-            Error = parsedError ?? (succeeded ? null : $"codex exited {run.ExitCode}."),
+            Error = error,
             CommandLine = commandLine,
             WorkingDirectory = workingDirectory,
             ChangedFiles = CodexJsonEventParser.DistinctChangedFiles(events),
@@ -176,6 +198,16 @@ public sealed class CodexCliClient(
 
         return startInfo;
     }
+
+    private static bool LooksLikeAuthFailure(string? text)
+        => !string.IsNullOrWhiteSpace(text)
+           && (text.Contains("not logged in", StringComparison.OrdinalIgnoreCase)
+               || text.Contains("not signed in", StringComparison.OrdinalIgnoreCase)
+               || text.Contains("please log in", StringComparison.OrdinalIgnoreCase)
+               || text.Contains("please login", StringComparison.OrdinalIgnoreCase)
+               || text.Contains("unauthorized", StringComparison.OrdinalIgnoreCase)
+               || text.Contains("not authenticated", StringComparison.OrdinalIgnoreCase)
+               || text.Contains("authentication required", StringComparison.OrdinalIgnoreCase));
 
     private static CodexProgress ToProgress(CodexJsonEvent parsed)
     {

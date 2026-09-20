@@ -5,11 +5,10 @@ namespace Jev.Workers.Tests;
 public sealed class ClaudeCommandBuilderTests
 {
     [Fact]
-    public void BuildPrintArguments_uses_headless_print_contract()
+    public void BuildPrintArguments_uses_subscription_headless_print_contract()
     {
         var builder = new ClaudeCommandBuilder(new ClaudeCliOptions
         {
-            Bare = true,
             OutputFormat = "json",
             PermissionMode = "acceptEdits",
             AllowedTools = "Read,Edit,Bash"
@@ -24,7 +23,7 @@ public sealed class ClaudeCommandBuilderTests
 
         Assert.Equal(
             [
-                "--bare", "-p", "scaffold hello",
+                "-p", "scaffold hello",
                 "--output-format", "json",
                 "--permission-mode", "acceptEdits",
                 "--allowedTools", "Read,Edit,Bash",
@@ -32,5 +31,10 @@ public sealed class ClaudeCommandBuilderTests
                 "--resume", "sess-1"
             ],
             args);
+        Assert.DoesNotContain("--bare", args);
     }
+
+    [Fact]
+    public void BuildAuthStatusArguments_uses_claude_auth_status()
+        => Assert.Equal(["auth", "status"], new ClaudeCommandBuilder(new ClaudeCliOptions()).BuildAuthStatusArguments());
 }

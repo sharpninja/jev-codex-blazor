@@ -25,5 +25,6 @@ If a request is blocked, Jev explains why and offers a safer alternative (dry-ru
 
 ## Degradation
 - Missing worker binary: report a clear not-installed error, include the intended argv, and do not pretend the coding work happened.
-- Missing `OPENAI_API_KEY` for Jev: use the local fallback chat client so the Blazor harness still routes coding asks through Agent Framework tools.
+- Installed but not signed in: tell the user to run the worker's subscription login (`codex login`, `claude auth login`, `grok login`, or `cline auth`). Do not ask for or use API keys for coding workers.
+- Missing orchestration LLM key for Jev (optional `OpenAI:ApiKey` / `OPENAI_API_KEY`): use the local fallback chat client so the Blazor harness still routes coding asks through Agent Framework tools. That key is only for Jev's chat client, never for Codex / Claude / Grok / Cline.
 - Worker non-zero exit: surface stderr, parsed error events, and any partial file-change list.

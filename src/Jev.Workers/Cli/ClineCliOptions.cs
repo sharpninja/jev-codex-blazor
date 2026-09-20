@@ -8,6 +8,10 @@ public sealed class ClineCliOptions
 
     public string? Model { get; set; }
 
+    /// <summary>
+    /// Optional CLI provider override. Leave empty so Cline uses its default
+    /// <c>cline</c> subscription provider from <c>cline auth</c>.
+    /// </summary>
     public string? Provider { get; set; }
 
     public bool Yolo { get; set; } = true;
