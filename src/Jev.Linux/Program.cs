@@ -19,7 +19,9 @@ internal static class Program
         var builder = PhotinoBlazorAppBuilder.CreateDefault(args);
         builder.Services.AddSingleton<IConfiguration>(configuration);
         builder.Services.AddSingleton<ICodingHost>(CodingHost.Desktop(
-            RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? "linux" : "desktop"));
+            RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? "linux"
+                : RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "windows"
+                : "desktop"));
         builder.Services.AddJevApp(configuration);
         builder.RootComponents.Add<App>("app");
 

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>jev</AssemblyName>
+    <RootNamespace>Jev.Tool</RootNamespace>
+    <PackAsTool>true</PackAsTool>
+    <IsPackable>true</IsPackable>
+    <ToolCommandName>jev</ToolCommandName>
+    <PackageId>Jev.Tool</PackageId>
+    <Authors>Jev contributors</Authors>
+    <Description>Jev desktop launcher. Detects Windows or Linux and starts the matching Photino Hybrid binary.</Description>
+    <PackageTags>jev;blazor;hybrid;dotnet-tool</PackageTags>
+    <PackageProjectUrl>https://github.com/sharpninja/jev-codex-blazor</PackageProjectUrl>
+    <PayloadRoot Condition="'$(PayloadRoot)' == ''">$(MSBuildThisFileDirectory)payload</PayloadRoot>
+  </PropertyGroup>
+  <ItemGroup Condition="Exists('$(PayloadRoot)')">
+    <Content Include="$(PayloadRoot)\**\*"
+             Pack="true"
+             PackagePath="tools\$(TargetFramework)\any\payload\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             Link="payload\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

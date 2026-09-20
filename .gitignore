@@ -35,3 +35,4 @@ coverage*
 *.nupkg
 .tmp/
 .nuke/temp
+src/Jev.Tool/payload/

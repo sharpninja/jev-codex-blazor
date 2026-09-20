@@ -6,7 +6,8 @@ A .NET 10 solution where a user chats with **Jev** through a **shared Blazor UI*
 Jev.App (shared Razor UI + chat service)
     ├── Jev.Web          ASP.NET Interactive Server (Linux CI / `dotnet run`)
     ├── Jev.Wasm         Blazor WebAssembly (browser)
-    ├── Jev.Linux        Photino.Blazor Hybrid (Linux desktop WebView)
+    ├── Jev.Linux        Photino.Blazor Hybrid (Linux / Windows desktop WebView)
+    ├── Jev.Tool         dotnet tool launcher (`jev`) that picks the OS binary
     └── Jev.Maui         .NET MAUI Blazor Hybrid (Windows + Android)
             ↓
     Jev ChatClientAgent (Microsoft Agent Framework)
@@ -43,7 +44,8 @@ Persona and policy text live in editable markdown:
 | `src/Jev.App` | Shared Razor class library (chat UI, `JevChatService`) | yes |
 | `src/Jev.Web` | Thin Interactive Server host | yes |
 | `src/Jev.Wasm` | Blazor WebAssembly host | yes |
-| `src/Jev.Linux` | Photino.Blazor Hybrid Linux desktop | yes |
+| `src/Jev.Linux` | Photino.Blazor Hybrid (linux-x64 + win-x64) | yes |
+| `src/Jev.Tool` | `dotnet tool` launcher (`jev`) | yes |
 | `src/Jev.Maui` | MAUI Blazor Hybrid (`net10.0-windows10.0.19041.0` + `net10.0-android`) | no — Windows App SDK / Android SDK |
 | `src/Jev.Core` | Jev persona, Agent Framework agent, strategy-aware tools | yes |
 | `src/Jev.Workers` | `ICodingAgentStrategy`, `ICodingHost`, Claude / Grok / Cline | yes |
@@ -130,11 +132,21 @@ NUKE 10.1.0 lives in [`nuke/`](nuke/). From the repo root:
 ./build.sh PublishWasm
 ./build.sh PublishLinux              # tarball + .deb installer
 ./build.sh PublishWindowsPortable    # Photino win-x64 zip (cross-published from Linux)
+./build.sh PackTool                  # Jev.Tool nupkg with linux-x64 + win-x64 payloads
 ./build.sh PublishWindows            # MAUI Windows; fails clearly unless Windows + maui-windows
 ./build.sh PublishAndroid            # fails clearly unless maui-android + Android SDK
-./build.sh Pack                      # Test + WASM + Linux installers + Windows portable
+./build.sh Pack                      # Test + WASM + Linux installers + Windows portable + tool
 ./build.sh PackAll                   # also MAUI Windows/Android; missing SDKs fail, they do not no-op
 ./build.sh Release                   # Pack + SHA256SUMS + GitHub prerelease v0.1.0
+```
+
+Install the desktop app as a **.NET tool** (recommended):
+
+```bash
+./build.sh PackTool
+dotnet tool install -g Jev.Tool --add-source ./artifacts --version 0.1.0
+jev                 # starts payload/linux-x64/Jev or payload/win-x64/Jev.exe
+jev --tool-info     # prints detected RID and binary path
 ```
 
 Outputs under `artifacts/`:
@@ -145,6 +157,7 @@ Outputs under `artifacts/`:
 | `jev-linux-x64.tar.gz` | Self-contained Photino Linux app (`./Jev`) |
 | `jev_<version>_amd64.deb` | Linux installer (`sudo dpkg -i …` then `jev`) |
 | `jev-windows-x64.zip` | Photino + WebView2 portable Windows app (`Jev.exe`), cross-published from Linux |
+| `Jev.Tool.<version>.nupkg` | `dotnet tool` with both desktop binaries and a host-detecting `jev` launcher |
 | `jev-windows-maui-x64.zip` | MAUI unpackaged Windows app (Windows pack machine only). MSIX: `-p:WindowsPackageType=MSIX` |
 | `SHA256SUMS` | SHA-256 checksums of the files above |
 | `*.apk` | MAUI Android package (also copy any `.aab` the SDK emits) |

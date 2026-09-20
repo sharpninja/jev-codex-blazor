@@ -24,6 +24,7 @@ public class Build : NukeBuild
     AbsolutePath SolutionFile => RootDirectory / "Jev.slnx";
     AbsolutePath WasmProject => RootDirectory / "src" / "Jev.Wasm" / "Jev.Wasm.csproj";
     AbsolutePath LinuxProject => RootDirectory / "src" / "Jev.Linux" / "Jev.Linux.csproj";
+    AbsolutePath ToolProject => RootDirectory / "src" / "Jev.Tool" / "Jev.Tool.csproj";
     AbsolutePath MauiProject => RootDirectory / "src" / "Jev.Maui" / "Jev.Maui.csproj";
     AbsolutePath IconSvg => RootDirectory / "src" / "Jev.Maui" / "Resources" / "AppIcon" / "appicon.svg";
 
@@ -31,6 +32,7 @@ public class Build : NukeBuild
     AbsolutePath LinuxTarball => ArtifactsDirectory / "jev-linux-x64.tar.gz";
     AbsolutePath LinuxDeb => ArtifactsDirectory / $"jev_{Version}_amd64.deb";
     AbsolutePath WindowsPortableZip => ArtifactsDirectory / "jev-windows-x64.zip";
+    AbsolutePath ToolNupkg => ArtifactsDirectory / $"Jev.Tool.{Version}.nupkg";
     AbsolutePath ChecksumsFile => ArtifactsDirectory / "SHA256SUMS";
 
     Target Clean => _ => _
@@ -81,6 +83,10 @@ public class Build : NukeBuild
     Target PublishAndroid => _ => _
         .Executes(PublishAndroidCore);
 
+    Target PackTool => _ => _
+        .DependsOn(Compile)
+        .Executes(PackToolCore);
+
     Target Pack => _ => _
         .DependsOn(Test)
         .Executes(() =>
@@ -96,6 +102,7 @@ public class Build : NukeBuild
                 PublishWindowsMauiCore();
             }
 
+            PackToolCore();
             WriteChecksums();
             Log.Information("Pack complete for this OS. Use PackAll to require every platform SDK.");
         });
@@ -109,6 +116,7 @@ public class Build : NukeBuild
             PublishWindowsPortableCore();
             PublishWindowsMauiCore();
             PublishAndroidCore();
+            PackToolCore();
             WriteChecksums();
         });
 
@@ -119,6 +127,7 @@ public class Build : NukeBuild
             PublishWasmCore();
             PublishLinuxCore();
             PublishWindowsPortableCore();
+            PackToolCore();
             WriteChecksums();
             WriteReleaseNotes();
             CreateGitHubRelease();
@@ -193,6 +202,54 @@ public class Build : NukeBuild
             """);
         ZipDirectory(output, WindowsPortableZip);
         Log.Information("Windows portable: {Zip}", WindowsPortableZip);
+    }
+
+    void PackToolCore()
+    {
+        var payload = ArtifactsDirectory / "tool" / "payload";
+        PrepareDirectory(payload);
+        PublishPhotino(payload / "linux-x64", "linux-x64");
+        PublishPhotino(payload / "win-x64", "win-x64");
+        StripSymbols(payload);
+        MakeExecutable(payload / "linux-x64" / "Jev");
+
+        if (!File.Exists(payload / "linux-x64" / "Jev") || !File.Exists(payload / "win-x64" / "Jev.exe"))
+        {
+            Assert.Fail("PackTool needs both payload/linux-x64/Jev and payload/win-x64/Jev.exe.");
+        }
+
+        if (File.Exists(ToolNupkg))
+        {
+            File.Delete(ToolNupkg);
+        }
+
+        DotNetPack(s => s
+            .SetProject(ToolProject)
+            .SetConfiguration(Configuration.Release)
+            .SetOutputDirectory(ArtifactsDirectory)
+            .SetProperty("PayloadRoot", payload)
+            .SetVersion(Version)
+            .SetProperty("InformationalVersion", Version));
+        if (!File.Exists(ToolNupkg))
+        {
+            Assert.Fail($"dotnet pack finished but {ToolNupkg} was not produced.");
+        }
+
+        Log.Information("dotnet tool: {Nupkg}", ToolNupkg);
+        Log.Information("Install with: dotnet tool install -g Jev.Tool --add-source {Dir} --version {Version}", ArtifactsDirectory, Version);
+    }
+
+    void PublishPhotino(AbsolutePath output, string runtime)
+    {
+        PrepareDirectory(output);
+        DotNetPublish(s => s
+            .SetProject(LinuxProject)
+            .SetConfiguration(Configuration.Release)
+            .SetRuntime(runtime)
+            .SetSelfContained(true)
+            .SetProperty("DebugType", "None")
+            .SetProperty("DebugSymbols", "false")
+            .SetOutput(output));
     }
 
     void PublishWindowsMauiCore()
@@ -323,7 +380,8 @@ public class Build : NukeBuild
             WasmZip.Name,
             LinuxTarball.Name,
             LinuxDeb.Name,
-            WindowsPortableZip.Name
+            WindowsPortableZip.Name,
+            ToolNupkg.Name
         };
 
         var lines = new List<string>();
@@ -353,6 +411,13 @@ public class Build : NukeBuild
             First packaged Hybrid release: shared `Jev.App` UI, strategy workers, subscription-login auth.
 
             ## Install
+
+            **dotnet tool (Windows + Linux launcher)**
+            ```bash
+            dotnet tool install -g Jev.Tool --add-source . --version {Version}
+            jev
+            ```
+            The `jev` command detects the OS and starts `payload/linux-x64/Jev` or `payload/win-x64/Jev.exe`.
 
             **Linux (installer)**
             ```bash
@@ -384,7 +449,7 @@ public class Build : NukeBuild
     void CreateGitHubRelease()
     {
         var notes = ArtifactsDirectory / "RELEASE_NOTES.md";
-        var assets = new[] { WasmZip, LinuxTarball, LinuxDeb, WindowsPortableZip, ChecksumsFile }
+        var assets = new[] { WasmZip, LinuxTarball, LinuxDeb, WindowsPortableZip, ToolNupkg, ChecksumsFile }
             .Where(path => File.Exists(path))
             .Select(path => $"\"{path}\"")
             .ToArray();
@@ -479,6 +544,14 @@ public class Build : NukeBuild
         }
 
         Directory.CreateDirectory(path);
+    }
+
+    static void StripSymbols(AbsolutePath root)
+    {
+        foreach (var pdb in Directory.GetFiles(root, "*.pdb", SearchOption.AllDirectories))
+        {
+            File.Delete(pdb);
+        }
     }
 
     static void CopyDirectory(string source, string destination)
