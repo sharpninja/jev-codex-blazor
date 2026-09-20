@@ -139,7 +139,7 @@ Outputs under `artifacts/`:
 
 | File | Contents |
 | --- | --- |
-| `jev-wasm.zip` | Published WASM static site (`artifacts/wasm/wwwroot`) |
+| `jev-wasm.zip` | WASM static site from `artifacts/wasm/wwwroot` (the publish `wwwroot`; host files such as `web.config` stay beside it) |
 | `jev-linux-x64.tar.gz` | Self-contained Photino Linux app |
 | `jev-windows-x64.zip` | Unpackaged MAUI Windows app (`WindowsPackageType=None`). MSIX: republish with `-p:WindowsPackageType=MSIX` when the Windows App SDK is present. |
 | `*.apk` | MAUI Android package (also copy any `.aab` the SDK emits) |
