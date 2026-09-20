@@ -40,7 +40,7 @@ public sealed class JevRunStatus : IJevRunStatus
                 Detail = detail;
             }
 
-            if (phase is JevPhase.Thinking)
+            if (phase is JevPhase.Idle or JevPhase.Thinking)
             {
                 _events.Clear();
             }
