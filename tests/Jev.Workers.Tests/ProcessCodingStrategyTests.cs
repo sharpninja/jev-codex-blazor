@@ -27,7 +27,7 @@ public sealed class ProcessCodingStrategyTests
         var progress = new List<CodingProgress>();
         var result = await strategy.RunAsync(
             new CodingTaskRequest { Prompt = "hi" },
-            new Progress<CodingProgress>(progress.Add));
+            new ImmediateProgress<CodingProgress>(progress.Add));
         Assert.False(result.Succeeded);
         Assert.Equal(126, result.ExitCode);
         Assert.Null(runner.LastStartInfo);
@@ -140,7 +140,7 @@ public sealed class ProcessCodingStrategyTests
                 Prompt = "use OPENAI_API_KEY=sk-secretsecretsecret",
                 WorkingDirectory = Path.GetTempPath()
             },
-            new Progress<CodingProgress>(progress.Add));
+            new ImmediateProgress<CodingProgress>(progress.Add));
 
         Assert.True(result.Succeeded);
         Assert.Contains(progress, item => item.Phase == CodingProgress.Starting);

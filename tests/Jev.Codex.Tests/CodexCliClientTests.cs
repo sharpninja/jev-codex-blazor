@@ -26,7 +26,7 @@ public sealed class CodexCliClientTests
 
         var result = await client.ExecAsync(
             new CodexExecRequest { Prompt = "scaffold hello", WorkingDirectory = Path.GetTempPath() },
-            new Progress<CodexProgress>(progress.Add));
+            new ImmediateProgress<CodexProgress>(progress.Add));
 
         Assert.True(result.Succeeded);
         Assert.Equal("t-1", result.ThreadId);
@@ -59,7 +59,7 @@ public sealed class CodexCliClientTests
         var progress = new List<CodexProgress>();
         var result = await CreateClient(runner).ExecAsync(
             new CodexExecRequest { Prompt = "hi", WorkingDirectory = Path.GetTempPath() },
-            new Progress<CodexProgress>(progress.Add));
+            new ImmediateProgress<CodexProgress>(progress.Add));
 
         Assert.True(result.Succeeded);
         Assert.Contains(progress, item => item.Phase == "stdout" && item.Message == "not-json");

@@ -21,4 +21,14 @@ public sealed class SecretSanitizerTests
         const string prompt = "Scaffold a hello console app in /tmp/workspace";
         Assert.Equal(prompt, SecretSanitizer.Redact(prompt));
     }
+
+    [Fact]
+    public void Does_not_swallow_the_rest_of_a_quoted_command_line()
+    {
+        const string command = """grok -p "use OPENAI_API_KEY=sk-secretsecretsecret" --always-approve""";
+        var redacted = SecretSanitizer.Redact(command);
+        Assert.Contains("--always-approve", redacted);
+        Assert.Contains(SecretSanitizer.Redacted, redacted);
+        Assert.DoesNotContain("sk-secretsecretsecret", redacted);
+    }
 }

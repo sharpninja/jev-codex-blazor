@@ -120,8 +120,8 @@ public abstract class ProcessCodingStrategy(
             run = await processRunner.RunAsync(
                 startInfo,
                 stdin,
-                new Progress<string>(line => progress?.Report(new CodingProgress(CodingProgress.Stdout, SecretSanitizer.Redact(line)))),
-                new Progress<string>(line => progress?.Report(new CodingProgress(CodingProgress.Stderr, SecretSanitizer.Redact(line)))),
+                new ImmediateProgress<string>(line => progress?.Report(new CodingProgress(CodingProgress.Stdout, SecretSanitizer.Redact(line)))),
+                new ImmediateProgress<string>(line => progress?.Report(new CodingProgress(CodingProgress.Stderr, SecretSanitizer.Redact(line)))),
                 timeout.Token);
         }
         catch (CliExecutableNotFoundException ex)

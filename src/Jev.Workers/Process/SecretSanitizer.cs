@@ -26,7 +26,7 @@ public static partial class SecretSanitizer
     private static partial Regex BearerToken();
 
     [GeneratedRegex(
-        @"\b(api[_-]?key|access[_-]?token|auth[_-]?token|secret|password|passwd|authorization|openai_api_key|anthropic_api_key|xai_api_key|github_token|hf_token)\b(\s*[:=]\s*)([^\s,;]+)",
+        @"\b(api[_-]?key|access[_-]?token|auth[_-]?token|secret|password|passwd|authorization|openai_api_key|anthropic_api_key|xai_api_key|github_token|hf_token)\b(\s*[:=]\s*)([^\s,;""']+)",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex Assignment();
 

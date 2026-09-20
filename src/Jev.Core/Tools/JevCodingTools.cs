@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using Jev.Core.Runtime;
 using Jev.Workers;
+using Jev.Workers.Process;
 
 namespace Jev.Core.Tools;
 
@@ -85,7 +86,7 @@ public sealed class JevCodingTools(
                 Sandbox = sandbox,
                 SessionId = sessionId
             },
-            new Progress<CodingProgress>(item =>
+            new ImmediateProgress<CodingProgress>(item =>
             {
                 status.ReportWorker(item);
                 transcript?.Append(item);
