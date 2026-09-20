@@ -1,0 +1,21 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Jev.App/Jev.App.csproj" />
+    <Project Path="src/Jev.Codex/Jev.Codex.csproj" />
+    <Project Path="src/Jev.Core/Jev.Core.csproj" />
+    <Project Path="src/Jev.Linux/Jev.Linux.csproj" />
+    <Project Path="src/Jev.Tool/Jev.Tool.csproj" />
+    <Project Path="src/Jev.Wasm/Jev.Wasm.csproj" />
+    <Project Path="src/Jev.Web/Jev.Web.csproj" />
+    <Project Path="src/Jev.Workers/Jev.Workers.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Jev.Codex.Tests/Jev.Codex.Tests.csproj" />
+    <Project Path="tests/Jev.Core.Tests/Jev.Core.Tests.csproj" />
+    <Project Path="tests/Jev.Tool.Tests/Jev.Tool.Tests.csproj" />
+    <Project Path="tests/Jev.Workers.Tests/Jev.Workers.Tests.csproj" />
+  </Folder>
+  <Folder Name="/nuke/">
+    <Project Path="nuke/_build.csproj" />
+  </Folder>
+</Solution>

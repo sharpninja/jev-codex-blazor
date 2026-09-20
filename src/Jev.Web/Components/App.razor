@@ -1,0 +1,22 @@
+﻿@using Jev.App.Components
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <style>html,body{background:#0e1116;color:#e6edf3;margin:0}#blazor-error-ui{display:none}</style>
+    <link rel="stylesheet" href="_content/Jev.App/app.css" />
+    <link rel="stylesheet" href="Jev.Web.styles.css" />
+    <ImportMap />
+    <HeadOutlet @rendermode="InteractiveServer" />
+</head>
+
+<body>
+    <Routes @rendermode="InteractiveServer" />
+    <ReconnectModal />
+    <script src="_framework/blazor.web.js"></script>
+</body>
+
+</html>
