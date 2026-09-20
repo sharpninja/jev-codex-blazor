@@ -13,5 +13,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Jev.Core\Jev.Core.csproj" />
+    <ProjectReference Include="..\..\src\Jev.Workers\Jev.Workers.csproj" />
   </ItemGroup>
 </Project>

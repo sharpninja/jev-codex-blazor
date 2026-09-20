@@ -1,6 +1,7 @@
 using Jev.Core.Persona;
 using Jev.Core.Runtime;
 using Jev.Core.Tools;
+using Jev.Workers;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
@@ -11,7 +12,8 @@ namespace Jev.Core.Agent;
 
 public sealed class JevAgentFactory(
     JevPersona persona,
-    JevCodexTools tools,
+    JevCodingTools tools,
+    ICodingStrategySelector selector,
     IJevRunStatus status,
     IOptions<JevAgentOptions> jevOptions,
     IOptions<OpenAIOptions> openAiOptions,
@@ -32,17 +34,19 @@ public sealed class JevAgentFactory(
 
         var agentTools = new AITool[]
         {
-            AIFunctionFactory.Create(tools.ProbeCodexAsync, JevCodexTools.ProbeName),
-            AIFunctionFactory.Create(tools.RunCodingTaskAsync, JevCodexTools.RunCodingTaskName),
-            AIFunctionFactory.Create(tools.ScaffoldHelloConsoleAsync, JevCodexTools.ScaffoldHelloConsoleName)
+            AIFunctionFactory.Create(tools.ProbeCodingWorkerAsync, JevCodingTools.ProbeName),
+            AIFunctionFactory.Create(tools.RunCodingTaskAsync, JevCodingTools.RunCodingTaskName),
+            AIFunctionFactory.Create(tools.ScaffoldHelloConsoleAsync, JevCodingTools.ScaffoldHelloConsoleName)
         };
 
         AIAgent agent = chatClient.AsAIAgent(
             instructions: persona.LoadInstructions(),
             name: jev.Name,
-            description: "Jev coding-assistant emulation layer over the Codex CLI.",
+            description: "Jev coding-assistant emulation layer over a selectable coding-worker strategy.",
             tools: agentTools,
             loggerFactory: loggerFactory);
+
+        status.SetActiveStrategy(selector.Active.DisplayName);
 
         var orchestration = useFallback
             ? "fallback-router"

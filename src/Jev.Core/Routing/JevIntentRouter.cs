@@ -18,7 +18,7 @@ public static class JevIntentRouter
 
         if (IsAvailabilityQuestion(lower))
         {
-            return JevToolChoice.ProbeCodex;
+            return JevToolChoice.ProbeWorker;
         }
 
         if (IsHelloConsoleDemo(lower))
@@ -30,7 +30,13 @@ public static class JevIntentRouter
     }
 
     private static bool IsAvailabilityQuestion(string lower)
-        => (lower.Contains("codex") || lower.Contains("cli"))
+        => (lower.Contains("codex")
+            || lower.Contains("claude")
+            || lower.Contains("grok")
+            || lower.Contains("cline")
+            || lower.Contains("worker")
+            || lower.Contains("cli")
+            || lower.Contains("strategy"))
            && (lower.Contains("install")
                || lower.Contains("available")
                || lower.Contains("status")

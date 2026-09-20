@@ -1,4 +1,4 @@
-using Jev.Codex;
+using Jev.Workers;
 
 namespace Jev.Core.Runtime;
 
@@ -8,19 +8,23 @@ public interface IJevRunStatus
 
     string? Detail { get; }
 
-    IReadOnlyList<CodexProgress> CodexEvents { get; }
+    IReadOnlyList<CodingProgress> WorkerEvents { get; }
 
     string Orchestration { get; }
 
-    bool CodexInstalled { get; }
+    string ActiveStrategy { get; }
 
-    string? CodexVersion { get; }
+    bool WorkerInstalled { get; }
+
+    string? WorkerVersion { get; }
 
     void SetPhase(JevPhase phase, string? detail = null);
 
-    void ReportCodex(CodexProgress progress);
+    void ReportWorker(CodingProgress progress);
 
     void SetOrchestration(string orchestration);
 
-    void SetCodexAvailability(bool installed, string? version);
+    void SetActiveStrategy(string strategy);
+
+    void SetWorkerAvailability(bool installed, string? version);
 }

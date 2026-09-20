@@ -3,7 +3,7 @@ namespace Jev.Core.Routing;
 public enum JevToolChoice
 {
     None,
-    ProbeCodex,
+    ProbeWorker,
     RunCodingTask,
     ScaffoldHelloConsole
 }

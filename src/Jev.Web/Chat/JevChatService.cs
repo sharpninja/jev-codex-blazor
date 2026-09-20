@@ -1,6 +1,6 @@
-using Jev.Codex;
 using Jev.Core.Agent;
 using Jev.Core.Runtime;
+using Jev.Workers;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 
@@ -9,7 +9,7 @@ namespace Jev.Web.Chat;
 public sealed class JevChatService(
     JevAgentHandle handle,
     IJevRunStatus status,
-    ICodexCli codex)
+    ICodingStrategySelector selector)
 {
     private AgentSession? _session;
 
@@ -19,24 +19,28 @@ public sealed class JevChatService(
 
     public bool UsesFallback => handle.UsesFallbackChatClient;
 
+    public ICodingStrategySelector Selector => selector;
+
     public IList<ChatTurn> Turns { get; } = [];
 
     public async Task EnsureProbedAsync(CancellationToken cancellationToken = default)
     {
-        if (status.CodexInstalled || !string.IsNullOrWhiteSpace(status.CodexVersion))
+        await selector.RefreshAvailabilityAsync(cancellationToken);
+        ApplyActiveAvailability();
+    }
+
+    public async Task SwitchStrategyAsync(CodingStrategyKind kind, CancellationToken cancellationToken = default)
+    {
+        if (selector.ActiveKind == kind)
         {
             return;
         }
 
-        try
-        {
-            var availability = await codex.ProbeAsync(cancellationToken);
-            status.SetCodexAvailability(availability.IsInstalled, availability.Version ?? availability.Error);
-        }
-        catch (Exception ex)
-        {
-            status.SetCodexAvailability(false, ex.Message);
-        }
+        selector.Select(kind);
+        status.SetActiveStrategy(selector.Active.DisplayName);
+        await ResetAsync();
+        await selector.RefreshAvailabilityAsync(cancellationToken);
+        ApplyActiveAvailability();
     }
 
     public async Task SendAsync(string userText, Func<Task> onChanged, CancellationToken cancellationToken)
@@ -61,7 +65,7 @@ public sealed class JevChatService(
             {
                 if (update.Contents.OfType<FunctionCallContent>().Any())
                 {
-                    status.SetPhase(JevPhase.RunningCodex, "Calling Codex");
+                    status.SetPhase(JevPhase.RunningWorker, $"Calling {selector.Active.DisplayName}");
                 }
 
                 if (!string.IsNullOrEmpty(update.Text))
@@ -108,7 +112,16 @@ public sealed class JevChatService(
         }
 
         _session = null;
-
         status.SetPhase(JevPhase.Idle, "New conversation");
+    }
+
+    private void ApplyActiveAvailability()
+    {
+        if (selector.Availability.TryGetValue(selector.ActiveKind, out var availability))
+        {
+            status.SetWorkerAvailability(availability.IsInstalled, availability.Version ?? availability.Error);
+        }
+
+        status.SetActiveStrategy(selector.Active.DisplayName);
     }
 }

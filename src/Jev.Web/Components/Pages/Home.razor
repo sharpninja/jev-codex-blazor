@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @using Jev.Core.Runtime
 @using Jev.Web.Chat
+@using Jev.Workers
 @inject JevChatService Chat
 @implements IDisposable
 
@@ -13,7 +14,7 @@
             <div class="mark" aria-hidden="true">J</div>
             <div>
                 <h1>Jev</h1>
-                <p>Codex-backed coding assistant</p>
+                <p>Strategy-backed coding assistant</p>
             </div>
         </div>
 
@@ -23,9 +24,9 @@
                 <dd>@Chat.Orchestration</dd>
             </div>
             <div>
-                <dt>Codex CLI</dt>
-                <dd class="@(Chat.Status.CodexInstalled ? "ok" : "warn")" title="@Chat.Status.CodexVersion">
-                    @(Chat.Status.CodexInstalled ? Chat.Status.CodexVersion ?? "available" : "not installed")
+                <dt>Active worker</dt>
+                <dd class="@(Chat.Status.WorkerInstalled ? "ok" : "warn")" title="@Chat.Status.WorkerVersion">
+                    @Chat.Status.ActiveStrategy — @(Chat.Status.WorkerInstalled ? Chat.Status.WorkerVersion ?? "available" : "not installed")
                 </dd>
             </div>
             <div>
@@ -34,9 +35,25 @@
             </div>
         </dl>
 
+        <div class="strategies">
+            <span class="strategies-label">Coding worker</span>
+            @foreach (var strategy in Chat.Selector.All)
+            {
+                var installed = Chat.Selector.Availability.TryGetValue(strategy.Kind, out var availability) && availability.IsInstalled;
+                <button type="button"
+                        class="strategy @(strategy.Kind == Chat.Selector.ActiveKind ? "active" : null)"
+                        disabled="@_busy"
+                        title="@strategy.ExecutablePath"
+                        @onclick="() => SwitchAsync(strategy.Kind)">
+                    <strong>@strategy.DisplayName</strong>
+                    <small class="@(installed ? "ok" : "warn")">@(installed ? "ready" : "missing")</small>
+                </button>
+            }
+        </div>
+
         <p class="lede">
-            Chat with Jev. Implementation work is delegated to the Codex CLI through
-            Microsoft Agent Framework tools — this UI never calls Codex directly.
+            Chat with Jev. Implementation work is delegated to the selected coding
+            worker through Microsoft Agent Framework tools — this UI never calls a CLI directly.
         </p>
 
         <button class="ghost" type="button" @onclick="ResetAsync">New conversation</button>
@@ -56,7 +73,7 @@
             {
                 <div class="empty">
                     <h2>Ready when you are.</h2>
-                    <p>Jev plans and explains. Codex writes the files.</p>
+                    <p>Jev plans and explains. @Chat.Status.ActiveStrategy writes the files.</p>
                     <div class="chips">
                         @foreach (var sample in Samples)
                         {
@@ -80,12 +97,12 @@
             }
         </section>
 
-        @if (Chat.Status.CodexEvents.Count > 0)
+        @if (Chat.Status.WorkerEvents.Count > 0)
         {
             <details class="codex-log" open>
-                <summary>Codex progress</summary>
+                <summary>@Chat.Status.ActiveStrategy progress</summary>
                 <ul>
-                    @foreach (var evt in Chat.Status.CodexEvents.TakeLast(8))
+                    @foreach (var evt in Chat.Status.WorkerEvents.TakeLast(8))
                     {
                         <li><code>@evt.Phase</code> @evt.Message</li>
                     }
@@ -97,7 +114,7 @@
             <textarea @bind="_draft"
                       @bind:event="oninput"
                       @onkeydown="OnKeyDown"
-                      placeholder="Ask Jev to plan, probe Codex, or scaffold a hello console app…"
+                      placeholder="Ask Jev to plan, probe the coding worker, or scaffold a hello console app…"
                       rows="3"
                       disabled="@_busy"></textarea>
             <button type="submit" disabled="@(_busy || string.IsNullOrWhiteSpace(_draft))">Send</button>
@@ -109,7 +126,7 @@
     private static readonly string[] Samples =
     [
         "Who are you?",
-        "Is Codex available?",
+        "Is the coding worker available?",
         "Scaffold a hello console app in a temp workspace"
     ];
 
@@ -121,7 +138,7 @@
     private string PhaseLabel => Chat.Status.Phase switch
     {
         JevPhase.Thinking => "thinking",
-        JevPhase.RunningCodex => "running Codex",
+        JevPhase.RunningWorker => $"running {Chat.Status.ActiveStrategy}",
         JevPhase.Done => "done",
         JevPhase.Error => "error",
         _ => "ready"
@@ -130,7 +147,7 @@
     private string PhaseClass => Chat.Status.Phase switch
     {
         JevPhase.Thinking => "thinking",
-        JevPhase.RunningCodex => "running",
+        JevPhase.RunningWorker => "running",
         JevPhase.Done => "done",
         JevPhase.Error => "error",
         _ => "idle"
@@ -164,6 +181,16 @@
             _busy = false;
             await InvokeAsync(StateHasChanged);
         }
+    }
+
+    private async Task SwitchAsync(CodingStrategyKind kind)
+    {
+        if (_busy)
+        {
+            return;
+        }
+
+        await Chat.SwitchStrategyAsync(kind, _cts.Token);
     }
 
     private async Task OnKeyDown(KeyboardEventArgs args)

@@ -1,10 +1,10 @@
-using Jev.Codex;
+using Jev.Workers;
 
 namespace Jev.Core.Runtime;
 
 public sealed class JevRunStatus : IJevRunStatus
 {
-    private readonly List<CodexProgress> _events = [];
+    private readonly List<CodingProgress> _events = [];
     private readonly object _gate = new();
 
     public JevPhase Phase { get; private set; } = JevPhase.Idle;
@@ -13,11 +13,13 @@ public sealed class JevRunStatus : IJevRunStatus
 
     public string Orchestration { get; private set; } = "unknown";
 
-    public bool CodexInstalled { get; private set; }
+    public string ActiveStrategy { get; private set; } = "Codex";
 
-    public string? CodexVersion { get; private set; }
+    public bool WorkerInstalled { get; private set; }
 
-    public IReadOnlyList<CodexProgress> CodexEvents
+    public string? WorkerVersion { get; private set; }
+
+    public IReadOnlyList<CodingProgress> WorkerEvents
     {
         get
         {
@@ -45,11 +47,11 @@ public sealed class JevRunStatus : IJevRunStatus
         }
     }
 
-    public void ReportCodex(CodexProgress progress)
+    public void ReportWorker(CodingProgress progress)
     {
         lock (_gate)
         {
-            Phase = JevPhase.RunningCodex;
+            Phase = JevPhase.RunningWorker;
             Detail = progress.Message;
             _events.Add(progress);
             if (_events.Count > 40)
@@ -61,9 +63,11 @@ public sealed class JevRunStatus : IJevRunStatus
 
     public void SetOrchestration(string orchestration) => Orchestration = orchestration;
 
-    public void SetCodexAvailability(bool installed, string? version)
+    public void SetActiveStrategy(string strategy) => ActiveStrategy = strategy;
+
+    public void SetWorkerAvailability(bool installed, string? version)
     {
-        CodexInstalled = installed;
-        CodexVersion = version;
+        WorkerInstalled = installed;
+        WorkerVersion = version;
     }
 }

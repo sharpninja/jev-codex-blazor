@@ -10,14 +10,14 @@ public sealed class FallbackJevChatClientTests
     public async Task Emits_scaffold_function_call_for_demo_prompt()
     {
         using var client = new FallbackJevChatClient();
-        var tools = new AITool[] { DummyFunction(JevCodexTools.ScaffoldHelloConsoleName) };
+        var tools = new AITool[] { DummyFunction(JevCodingTools.ScaffoldHelloConsoleName) };
 
         var response = await client.GetResponseAsync(
             [new ChatMessage(ChatRole.User, "Scaffold a hello console app in a temp workspace")],
             new ChatOptions { Tools = tools });
 
         var call = response.Messages.SelectMany(message => message.Contents).OfType<FunctionCallContent>().Single();
-        Assert.Equal(JevCodexTools.ScaffoldHelloConsoleName, call.Name);
+        Assert.Equal(JevCodingTools.ScaffoldHelloConsoleName, call.Name);
     }
 
     [Fact]
@@ -27,7 +27,7 @@ public sealed class FallbackJevChatClientTests
         var response = await client.GetResponseAsync(
         [
             new ChatMessage(ChatRole.User, "scaffold hello"),
-            new ChatMessage(ChatRole.Assistant, [new FunctionCallContent("1", JevCodexTools.ScaffoldHelloConsoleName)]),
+            new ChatMessage(ChatRole.Assistant, [new FunctionCallContent("1", JevCodingTools.ScaffoldHelloConsoleName)]),
             new ChatMessage(ChatRole.Tool, [new FunctionResultContent("1", "Codex CLI is not available")])
         ]);
 
@@ -42,14 +42,14 @@ public sealed class FallbackJevChatClientTests
         var response = await client.GetResponseAsync(
         [
             new ChatMessage(ChatRole.User, "Is Codex available?"),
-            new ChatMessage(ChatRole.Assistant, [new FunctionCallContent("1", JevCodexTools.ProbeName)]),
+            new ChatMessage(ChatRole.Assistant, [new FunctionCallContent("1", JevCodingTools.ProbeName)]),
             new ChatMessage(ChatRole.Tool, [new FunctionResultContent("1", "Codex CLI is not available")]),
             new ChatMessage(ChatRole.Assistant, "I delegated that to Codex."),
             new ChatMessage(ChatRole.User, "Scaffold a hello console app in a temp workspace")
         ]);
 
         var call = response.Messages.SelectMany(message => message.Contents).OfType<FunctionCallContent>().Single();
-        Assert.Equal(JevCodexTools.ScaffoldHelloConsoleName, call.Name);
+        Assert.Equal(JevCodingTools.ScaffoldHelloConsoleName, call.Name);
     }
 
     private static AIFunction DummyFunction(string name)

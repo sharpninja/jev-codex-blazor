@@ -13,4 +13,7 @@ public sealed class JevAgentOptions
 
     /// <summary>Force the local fallback IChatClient even when an OpenAI key is present.</summary>
     public bool UseFallbackChatClient { get; set; }
+
+    /// <summary>Codex | Claude | GrokBuild | Cline</summary>
+    public string CodingStrategy { get; set; } = "Codex";
 }

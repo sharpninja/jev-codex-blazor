@@ -4,7 +4,7 @@ public enum JevPhase
 {
     Idle,
     Thinking,
-    RunningCodex,
+    RunningWorker,
     Done,
     Error
 }

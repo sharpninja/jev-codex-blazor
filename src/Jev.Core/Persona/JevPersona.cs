@@ -56,13 +56,13 @@ public sealed class JevPersona(IOptions<JevAgentOptions> options, IHostEnvironme
     }
 
     private const string EmbeddedSystem = """
-        You are Jev, a coding-assistant persona that sits in front of the OpenAI Codex CLI.
-        Plan and explain. Delegate file and tool work to Codex tools. Never invent command output.
+        You are Jev, a coding-assistant persona in front of a selectable coding worker (Codex, Claude Code, Grok Build, or Cline).
+        Plan and explain. Delegate file and tool work to the selected strategy. Never invent command output.
         Default to workspace-write. Refuse destructive shell actions. Never echo secrets.
         """;
 
     private const string EmbeddedPolicies = """
-        Use probe_codex for availability questions.
+        Use probe_coding_worker for availability questions.
         Use scaffold_hello_console for the hello-console demo.
         Use run_coding_task for other implementation work.
         If Codex is missing, say so clearly and include the intended command.

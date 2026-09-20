@@ -1,43 +1,39 @@
 using System.ComponentModel;
-using Jev.Codex;
 using Jev.Core.Runtime;
+using Jev.Workers;
 
 namespace Jev.Core.Tools;
 
-public sealed class JevCodexTools(ICodexCli codex, IJevRunStatus status)
+public sealed class JevCodingTools(ICodingStrategySelector selector, IJevRunStatus status)
 {
-    public const string ProbeName = "probe_codex";
+    public const string ProbeName = "probe_coding_worker";
     public const string RunCodingTaskName = "run_coding_task";
     public const string ScaffoldHelloConsoleName = "scaffold_hello_console";
 
-    [Description("Check whether the Codex CLI is installed and report its version.")]
-    public async Task<string> ProbeCodexAsync(CancellationToken cancellationToken)
+    [Description("Check whether the selected coding-worker CLI (Codex, Claude Code, Grok Build, or Cline) is installed.")]
+    public async Task<string> ProbeCodingWorkerAsync(CancellationToken cancellationToken)
     {
-        status.SetPhase(JevPhase.RunningCodex, "Probing Codex CLI");
-        var availability = await codex.ProbeAsync(cancellationToken);
-        status.SetCodexAvailability(availability.IsInstalled, availability.Version);
+        var worker = selector.Active;
+        status.SetPhase(JevPhase.RunningWorker, $"Probing {worker.DisplayName}");
+        var availability = await worker.ProbeAsync(cancellationToken);
+        status.SetWorkerAvailability(availability.IsInstalled, availability.Version);
         return availability.FormatForAgent();
     }
 
-    [Description("Delegate a coding task to the Codex CLI in a workspace. Use this to create, edit, test, or inspect files. Do not use for small talk.")]
+    [Description("Delegate a coding task to the selected coding-worker strategy. Use this to create, edit, test, or inspect files. Do not use for small talk.")]
     public Task<string> RunCodingTaskAsync(
-        [Description("Self-contained instruction for Codex, including the goal, constraints, and expected artifacts.")]
+        [Description("Self-contained instruction for the coding worker, including the goal, constraints, and expected artifacts.")]
         string prompt,
         [Description("Workspace directory. Leave empty to use a new temp workspace.")]
         string workingDirectory = "",
-        [Description("Optional Codex sandbox: read-only, workspace-write, or danger-full-access.")]
+        [Description("Optional sandbox hint for workers that support one (Codex: read-only, workspace-write, danger-full-access).")]
         string sandbox = "",
-        [Description("Optional Codex thread id to resume.")]
+        [Description("Optional worker session id to resume.")]
         string sessionId = "",
         CancellationToken cancellationToken = default)
-        => ExecAsync(
-            prompt,
-            NullIfEmpty(workingDirectory),
-            NullIfEmpty(sandbox),
-            NullIfEmpty(sessionId),
-            cancellationToken);
+        => ExecAsync(prompt, NullIfEmpty(workingDirectory), NullIfEmpty(sandbox), NullIfEmpty(sessionId), cancellationToken);
 
-    [Description("Demo path: scaffold a hello console app in a fresh temp workspace via Codex.")]
+    [Description("Demo path: scaffold a hello console app in a fresh temp workspace via the selected coding worker.")]
     public Task<string> ScaffoldHelloConsoleAsync(
         [Description("Optional workspace directory. Leave empty to create a temp folder.")]
         string workingDirectory = "",
@@ -53,12 +49,7 @@ public sealed class JevCodexTools(ICodexCli codex, IJevRunStatus status)
             - Keep the change set small and explain the files you created.
             """;
 
-        return ExecAsync(
-            prompt,
-            NullIfEmpty(workingDirectory),
-            CodexSandbox.WorkspaceWrite,
-            sessionId: null,
-            cancellationToken);
+        return ExecAsync(prompt, NullIfEmpty(workingDirectory), "workspace-write", sessionId: null, cancellationToken);
     }
 
     private static string? NullIfEmpty(string? value)
@@ -71,16 +62,17 @@ public sealed class JevCodexTools(ICodexCli codex, IJevRunStatus status)
         string? sessionId,
         CancellationToken cancellationToken)
     {
-        status.SetPhase(JevPhase.RunningCodex, "Starting Codex");
-        var result = await codex.ExecAsync(
-            new CodexExecRequest
+        var worker = selector.Active;
+        status.SetPhase(JevPhase.RunningWorker, $"Starting {worker.DisplayName}");
+        var result = await worker.RunAsync(
+            new CodingTaskRequest
             {
                 Prompt = prompt,
                 WorkingDirectory = workingDirectory,
                 Sandbox = sandbox,
                 SessionId = sessionId
             },
-            new Progress<CodexProgress>(status.ReportCodex),
+            new Progress<CodingProgress>(status.ReportWorker),
             cancellationToken);
 
         if (!result.Succeeded)

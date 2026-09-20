@@ -37,13 +37,13 @@ public sealed class FallbackJevChatClient : IChatClient
 
         return Task.FromResult(choice switch
         {
-            JevToolChoice.ProbeCodex
-                => FunctionCall(Jev.Core.Tools.JevCodexTools.ProbeName),
+            JevToolChoice.ProbeWorker
+                => FunctionCall(Jev.Core.Tools.JevCodingTools.ProbeName),
             JevToolChoice.ScaffoldHelloConsole
-                => FunctionCall(Jev.Core.Tools.JevCodexTools.ScaffoldHelloConsoleName),
+                => FunctionCall(Jev.Core.Tools.JevCodingTools.ScaffoldHelloConsoleName),
             JevToolChoice.RunCodingTask
                 => FunctionCall(
-                    Jev.Core.Tools.JevCodexTools.RunCodingTaskName,
+                    Jev.Core.Tools.JevCodingTools.RunCodingTaskName,
                     new Dictionary<string, object?> { ["prompt"] = userText }),
             _ => TextResponse(ReplyWithoutTool(userText, choice))
         });
@@ -102,12 +102,12 @@ public sealed class FallbackJevChatClient : IChatClient
                      || body.Contains("not available", StringComparison.OrdinalIgnoreCase)
             ? """
 
-              If Codex is not installed, install the Codex CLI, put it on PATH, and retry. I will not pretend the files were written.
+              If that coding worker is not installed, install its CLI, put it on PATH, select it in the sidebar, and retry. I will not pretend the files were written.
               """
             : "";
 
         return $"""
-            I delegated that to Codex and here is the structured result.
+            I delegated that to the selected coding worker and here is the structured result.
 
             {body}
             {suffix}
@@ -125,7 +125,7 @@ public sealed class FallbackJevChatClient : IChatClient
             || userText.Contains("what are you", StringComparison.OrdinalIgnoreCase))
         {
             return """
-                I'm Jev — a coding-assistant emulation layer. I plan and explain; Codex CLI does the file and tool work.
+                I'm Jev — a coding-assistant emulation layer. I plan and explain; the selected coding worker (Codex, Claude Code, Grok Build, or Cline) does the file and tool work.
                 This turn is using the local fallback router because no OpenAI API key is configured for Agent Framework orchestration.
                 """;
         }
@@ -133,8 +133,8 @@ public sealed class FallbackJevChatClient : IChatClient
         if (choice is JevToolChoice.None)
         {
             return """
-                I'm Jev. I can talk through a plan here, and I will send implementation work to Codex.
-                Try "Is Codex available?" or "Scaffold a hello console app in a temp workspace."
+                I'm Jev. I can talk through a plan here, and I will send implementation work to the selected coding worker.
+                Try "Is the coding worker available?" or "Scaffold a hello console app in a temp workspace."
                 """;
         }
 
