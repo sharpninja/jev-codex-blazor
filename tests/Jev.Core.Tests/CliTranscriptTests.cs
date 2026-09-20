@@ -48,17 +48,21 @@ public sealed class CliTranscriptTests
         {
             ProgressToReport =
             [
+                new CodingProgress(CodingProgress.Starting, "Starting Codex"),
                 new CodingProgress(CodingProgress.Input, "codex exec --json -"),
                 new CodingProgress(CodingProgress.Stdout, "line-one")
             ]
         };
         var transcript = new CliTranscript();
-        var tools = new JevCodingTools(new FixedSelector(worker), new JevRunStatus(), transcript);
+        var status = new JevRunStatus();
+        var tools = new JevCodingTools(new FixedSelector(worker), status, transcript);
 
         await tools.RunCodingTaskAsync("scaffold hello");
 
         Assert.Contains(transcript.Lines, line => line.Channel == CliTranscriptChannel.Input && line.Text.Contains("codex"));
         Assert.Contains(transcript.Lines, line => line.Channel == CliTranscriptChannel.Stdout && line.Text == "line-one");
+        Assert.Contains(status.WorkerEvents, item => item.Phase == CodingProgress.Starting);
+        Assert.DoesNotContain(status.WorkerEvents, item => item.Phase is CodingProgress.Input or CodingProgress.Stdout);
     }
 
     [Fact]

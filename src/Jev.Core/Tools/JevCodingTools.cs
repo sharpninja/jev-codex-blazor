@@ -88,7 +88,11 @@ public sealed class JevCodingTools(
             },
             new ImmediateProgress<CodingProgress>(item =>
             {
-                status.ReportWorker(item);
+                if (item.Phase is not (CodingProgress.Input or CodingProgress.Stdout or CodingProgress.Stderr))
+                {
+                    status.ReportWorker(item);
+                }
+
                 transcript?.Append(item);
             }),
             cancellationToken);
