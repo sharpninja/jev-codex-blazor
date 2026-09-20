@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Jev.Codex/Jev.Codex.csproj" />
+    <Project Path="src/Jev.Core/Jev.Core.csproj" />
+    <Project Path="src/Jev.Web/Jev.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Jev.Codex.Tests/Jev.Codex.Tests.csproj" />
+    <Project Path="tests/Jev.Core.Tests/Jev.Core.Tests.csproj" />
+  </Folder>
+</Solution>

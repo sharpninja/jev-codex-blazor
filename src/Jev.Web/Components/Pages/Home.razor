@@ -1,0 +1,189 @@
+﻿@page "/"
+@rendermode InteractiveServer
+@using Jev.Core.Runtime
+@using Jev.Web.Chat
+@inject JevChatService Chat
+@implements IDisposable
+
+<PageTitle>Jev</PageTitle>
+
+<div class="app">
+    <aside class="rail">
+        <div class="brand">
+            <div class="mark" aria-hidden="true">J</div>
+            <div>
+                <h1>Jev</h1>
+                <p>Codex-backed coding assistant</p>
+            </div>
+        </div>
+
+        <dl class="facts">
+            <div>
+                <dt>Orchestration</dt>
+                <dd>@Chat.Orchestration</dd>
+            </div>
+            <div>
+                <dt>Codex CLI</dt>
+                <dd class="@(Chat.Status.CodexInstalled ? "ok" : "warn")">
+                    @(Chat.Status.CodexInstalled ? Chat.Status.CodexVersion ?? "available" : Chat.Status.CodexVersion ?? "not installed")
+                </dd>
+            </div>
+            <div>
+                <dt>Persona</dt>
+                <dd>prompts/jev-system.md</dd>
+            </div>
+        </dl>
+
+        <p class="lede">
+            Chat with Jev. Implementation work is delegated to the Codex CLI through
+            Microsoft Agent Framework tools — this UI never calls Codex directly.
+        </p>
+
+        <button class="ghost" type="button" @onclick="ResetAsync">New conversation</button>
+    </aside>
+
+    <main class="stage">
+        <header class="status-bar">
+            <span class="pill @PhaseClass">@PhaseLabel</span>
+            @if (!string.IsNullOrWhiteSpace(Chat.Status.Detail))
+            {
+                <span class="detail">@Chat.Status.Detail</span>
+            }
+        </header>
+
+        <section class="transcript" @ref="_transcript">
+            @if (Chat.Turns.Count == 0)
+            {
+                <div class="empty">
+                    <h2>Ready when you are.</h2>
+                    <p>Jev plans and explains. Codex writes the files.</p>
+                    <div class="chips">
+                        @foreach (var sample in Samples)
+                        {
+                            <button type="button" disabled="@_busy" @onclick="() => SendAsync(sample)">@sample</button>
+                        }
+                    </div>
+                </div>
+            }
+            else
+            {
+                @foreach (var turn in Chat.Turns)
+                {
+                    <article class="bubble @turn.Role @(turn.IsError ? "error" : null)">
+                        <header>
+                            <strong>@(turn.Role == "user" ? "You" : "Jev")</strong>
+                            <time>@turn.Timestamp.ToLocalTime().ToString("HH:mm:ss")</time>
+                        </header>
+                        <pre>@turn.Text@if (turn.IsStreaming){<span class="caret">▍</span>}</pre>
+                    </article>
+                }
+            }
+        </section>
+
+        @if (Chat.Status.CodexEvents.Count > 0)
+        {
+            <details class="codex-log" open>
+                <summary>Codex progress</summary>
+                <ul>
+                    @foreach (var evt in Chat.Status.CodexEvents.TakeLast(8))
+                    {
+                        <li><code>@evt.Phase</code> @evt.Message</li>
+                    }
+                </ul>
+            </details>
+        }
+
+        <form class="composer" @onsubmit="SubmitAsync" @onsubmit:preventDefault="true">
+            <textarea @bind="_draft"
+                      @bind:event="oninput"
+                      @onkeydown="OnKeyDown"
+                      placeholder="Ask Jev to plan, probe Codex, or scaffold a hello console app…"
+                      rows="3"
+                      disabled="@_busy"></textarea>
+            <button type="submit" disabled="@(_busy || string.IsNullOrWhiteSpace(_draft))">Send</button>
+        </form>
+    </main>
+</div>
+
+@code {
+    private static readonly string[] Samples =
+    [
+        "Who are you?",
+        "Is Codex available?",
+        "Scaffold a hello console app in a temp workspace"
+    ];
+
+    private string _draft = "";
+    private bool _busy;
+    private ElementReference _transcript;
+    private CancellationTokenSource _cts = new();
+
+    private string PhaseLabel => Chat.Status.Phase switch
+    {
+        JevPhase.Thinking => "thinking",
+        JevPhase.RunningCodex => "running Codex",
+        JevPhase.Done => "done",
+        JevPhase.Error => "error",
+        _ => "ready"
+    };
+
+    private string PhaseClass => Chat.Status.Phase switch
+    {
+        JevPhase.Thinking => "thinking",
+        JevPhase.RunningCodex => "running",
+        JevPhase.Done => "done",
+        JevPhase.Error => "error",
+        _ => "idle"
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Chat.EnsureProbedAsync(_cts.Token);
+    }
+
+    private Task SubmitAsync() => SendAsync(_draft);
+
+    private async Task SendAsync(string text)
+    {
+        if (_busy || string.IsNullOrWhiteSpace(text))
+        {
+            return;
+        }
+
+        _draft = "";
+        _busy = true;
+        try
+        {
+            await Chat.SendAsync(text, async () =>
+            {
+                await InvokeAsync(StateHasChanged);
+            }, _cts.Token);
+        }
+        finally
+        {
+            _busy = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter" && !args.ShiftKey)
+        {
+            await SendAsync(_draft);
+        }
+    }
+
+    private async Task ResetAsync()
+    {
+        await Chat.ResetAsync();
+        _draft = "";
+        _busy = false;
+    }
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+}
