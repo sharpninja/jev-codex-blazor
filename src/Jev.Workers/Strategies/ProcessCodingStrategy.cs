@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using Jev.Codex;
 using Jev.Workers.Process;
 using Microsoft.Extensions.Logging;
 
@@ -219,7 +218,7 @@ public abstract class ProcessCodingStrategy(
         };
 
     private string ResolvedDisplayPath()
-        => CliExecutableResolver.TryResolve(ExecutablePath)?.Path ?? ExecutablePath;
+        => Jev.Codex.CliExecutableResolver.TryResolve(ExecutablePath)?.Path ?? ExecutablePath;
 
     private CodingTaskResult Failed(int exitCode, string workingDirectory, string commandLine, string error)
         => new()

@@ -88,13 +88,13 @@ public sealed class CliExecutableResolverTests
         using var onPath = new TempDir();
         using var explicitDir = new TempDir();
         onPath.WriteExecutable("codex", "#!/bin/sh\necho path\n");
-        var explicit = explicitDir.WriteExecutable("codex", "#!/bin/sh\necho explicit\n");
+        var explicitShim = explicitDir.WriteExecutable("codex", "#!/bin/sh\necho explicit\n");
         var env = IsolatedUnix(onPath.Path);
 
-        var resolved = CliExecutableResolver.TryResolve(explicit, env);
+        var resolved = CliExecutableResolver.TryResolve(explicitShim, env);
 
         Assert.NotNull(resolved);
-        Assert.Equal(Path.GetFullPath(explicit), resolved.Path);
+        Assert.Equal(Path.GetFullPath(explicitShim), resolved.Path);
     }
 
     [Fact]

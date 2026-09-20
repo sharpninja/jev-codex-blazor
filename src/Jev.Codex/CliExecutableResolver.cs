@@ -102,17 +102,18 @@ public static class CliExecutableResolver
     private static ResolvedCliExecutable? TryResolveExplicitPath(string command, string path, CliSearchEnvironment env)
     {
         var full = Path.IsPathRooted(path) ? path : Path.GetFullPath(path);
-        if (File.Exists(full))
+        var existing = FindFile(full, env);
+        if (existing is not null)
         {
-            return CreateLaunch(command, PreferWindowsSiblingShim(full, env), env);
+            return CreateLaunch(command, PreferWindowsSiblingShim(existing, env), env);
         }
 
         if (env.IsWindows && string.IsNullOrEmpty(Path.GetExtension(full)))
         {
             foreach (var extension in GetWindowsExtensions(env))
             {
-                var candidate = full + extension;
-                if (File.Exists(candidate))
+                var candidate = FindFile(full + extension, env);
+                if (candidate is not null)
                 {
                     return CreateLaunch(command, candidate, env);
                 }
@@ -132,24 +133,24 @@ public static class CliExecutableResolver
         var hasExtension = !string.IsNullOrEmpty(Path.GetExtension(command));
         if (hasExtension)
         {
-            var exact = Path.Combine(directory, command);
-            return File.Exists(exact) ? CreateLaunch(command, exact, env) : null;
+            var exact = FindFile(Path.Combine(directory, command), env);
+            return exact is null ? null : CreateLaunch(command, exact, env);
         }
 
         if (env.IsWindows)
         {
             foreach (var extension in GetWindowsExtensions(env))
             {
-                var candidate = Path.Combine(directory, command + extension);
-                if (File.Exists(candidate))
+                var candidate = FindFile(Path.Combine(directory, command + extension), env);
+                if (candidate is not null)
                 {
                     return CreateLaunch(command, candidate, env);
                 }
             }
         }
 
-        var bare = Path.Combine(directory, command);
-        return File.Exists(bare) ? CreateLaunch(command, PreferWindowsSiblingShim(bare, env), env) : null;
+        var bare = FindFile(Path.Combine(directory, command), env);
+        return bare is null ? null : CreateLaunch(command, PreferWindowsSiblingShim(bare, env), env);
     }
 
     private static string PreferWindowsSiblingShim(string path, CliSearchEnvironment env)
@@ -161,8 +162,8 @@ public static class CliExecutableResolver
 
         foreach (var extension in PreferredWindowsExtensions)
         {
-            var sibling = path + extension;
-            if (File.Exists(sibling))
+            var sibling = FindFile(path + extension, env);
+            if (sibling is not null)
             {
                 return sibling;
             }
@@ -198,8 +199,8 @@ public static class CliExecutableResolver
         var system = Environment.GetFolderPath(Environment.SpecialFolder.System);
         if (!string.IsNullOrEmpty(system))
         {
-            var candidate = Path.Combine(system, name);
-            if (File.Exists(candidate))
+            var candidate = FindFile(Path.Combine(system, name), env);
+            if (candidate is not null)
             {
                 return candidate;
             }
@@ -433,6 +434,33 @@ public static class CliExecutableResolver
         }
 
         return list;
+    }
+
+    /// <summary>
+    /// Windows file systems are case-insensitive. Tests inject <see cref="CliSearchEnvironment.IsWindows"/>
+    /// on Linux CI, so lookup must not depend on PATHEXT casing matching the on-disk name.
+    /// </summary>
+    private static string? FindFile(string path, CliSearchEnvironment env)
+    {
+        if (File.Exists(path))
+        {
+            return path;
+        }
+
+        if (!env.IsWindows)
+        {
+            return null;
+        }
+
+        var directory = Path.GetDirectoryName(path);
+        var name = Path.GetFileName(path);
+        if (string.IsNullOrEmpty(directory) || string.IsNullOrEmpty(name) || !Directory.Exists(directory))
+        {
+            return null;
+        }
+
+        return Directory.EnumerateFiles(directory)
+            .FirstOrDefault(file => string.Equals(Path.GetFileName(file), name, StringComparison.OrdinalIgnoreCase));
     }
 
     private static IEnumerable<string> SplitPath(string path)
