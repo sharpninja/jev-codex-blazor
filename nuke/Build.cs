@@ -92,13 +92,21 @@ public class Build : NukeBuild
 
     void PublishWasmCore()
     {
-        var output = ArtifactsDirectory / "wasm" / "wwwroot";
+        var output = ArtifactsDirectory / "wasm";
         PrepareDirectory(output);
         DotNetPublish(s => s
             .SetProject(WasmProject)
             .SetConfiguration(Configuration.Release)
             .SetOutput(output));
-        ZipDirectory(output, ArtifactsDirectory / "jev-wasm.zip");
+
+        var staticSite = output / "wwwroot";
+        if (!Directory.Exists(staticSite))
+        {
+            Assert.Fail($"WASM publish finished but {staticSite} was not produced.");
+        }
+
+        ZipDirectory(staticSite, ArtifactsDirectory / "jev-wasm.zip");
+        Log.Information("WASM static site: {Dir}", staticSite);
         Log.Information("WASM package: {Zip}", ArtifactsDirectory / "jev-wasm.zip");
     }
 
