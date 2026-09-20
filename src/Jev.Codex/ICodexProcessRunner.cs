@@ -8,5 +8,6 @@ public interface ICodexProcessRunner
         ProcessStartInfo startInfo,
         string? standardInput,
         IProgress<string>? stdoutLine,
+        IProgress<string>? stderrLine,
         CancellationToken cancellationToken);
 }
