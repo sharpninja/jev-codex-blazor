@@ -16,6 +16,9 @@
     <Project Path="tests/Jev.Workers.Tests/Jev.Workers.Tests.csproj" />
   </Folder>
   <Folder Name="/nuke/">
-    <Project Path="nuke/_build.csproj" />
+    <Project Path="nuke/_build.csproj">
+      <!-- The wrapper builds NUKE before execution; solution targets must not modify its running files. -->
+      <Build Project="false" />
+    </Project>
   </Folder>
 </Solution>

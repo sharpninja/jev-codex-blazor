@@ -7,12 +7,16 @@
     <IsPackable>true</IsPackable>
     <ToolCommandName>jev</ToolCommandName>
     <PackageId>Jev.Tool</PackageId>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <Authors>Jev contributors</Authors>
     <Description>Jev desktop launcher. Detects Windows or Linux and starts the matching Photino Hybrid binary.</Description>
     <PackageTags>jev;blazor;hybrid;dotnet-tool</PackageTags>
     <PackageProjectUrl>https://github.com/sharpninja/jev-codex-blazor</PackageProjectUrl>
     <PayloadRoot Condition="'$(PayloadRoot)' == ''">$(MSBuildThisFileDirectory)payload</PayloadRoot>
   </PropertyGroup>
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
   <ItemGroup Condition="Exists('$(PayloadRoot)')">
     <!-- PackAsTool includes output files under tools/tfm/any/. Do not also set PackagePath — a file named Jev would become a directory in the nupkg. -->
     <Content Include="$(PayloadRoot)\**\*"
