@@ -24,8 +24,8 @@
             </div>
             <div>
                 <dt>Codex CLI</dt>
-                <dd class="@(Chat.Status.CodexInstalled ? "ok" : "warn")">
-                    @(Chat.Status.CodexInstalled ? Chat.Status.CodexVersion ?? "available" : Chat.Status.CodexVersion ?? "not installed")
+                <dd class="@(Chat.Status.CodexInstalled ? "ok" : "warn")" title="@Chat.Status.CodexVersion">
+                    @(Chat.Status.CodexInstalled ? Chat.Status.CodexVersion ?? "available" : "not installed")
                 </dd>
             </div>
             <div>

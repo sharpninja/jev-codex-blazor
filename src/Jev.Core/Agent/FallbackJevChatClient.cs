@@ -19,27 +19,29 @@ public sealed class FallbackJevChatClient : IChatClient
         CancellationToken cancellationToken = default)
     {
         var materialized = messages.ToList();
-        var lastFunctionResult = materialized
-            .SelectMany(message => message.Contents.OfType<FunctionResultContent>())
-            .LastOrDefault();
+        var lastUserIndex = materialized.FindLastIndex(message => message.Role == ChatRole.User);
+        var resultAfterLatestUser = lastUserIndex >= 0
+            ? materialized
+                .Skip(lastUserIndex + 1)
+                .SelectMany(message => message.Contents.OfType<FunctionResultContent>())
+                .LastOrDefault()
+            : null;
 
-        if (lastFunctionResult is not null)
+        if (resultAfterLatestUser is not null)
         {
-            return Task.FromResult(TextResponse(SummarizeToolResult(lastFunctionResult)));
+            return Task.FromResult(TextResponse(SummarizeToolResult(resultAfterLatestUser)));
         }
 
-        var userText = LastUserText(materialized);
+        var userText = lastUserIndex >= 0 ? materialized[lastUserIndex].Text?.Trim() ?? "" : "";
         var choice = JevIntentRouter.Choose(userText);
-        var available = options?.Tools?.OfType<AIFunction>().ToDictionary(tool => tool.Name, StringComparer.OrdinalIgnoreCase)
-                        ?? new Dictionary<string, AIFunction>(StringComparer.OrdinalIgnoreCase);
 
         return Task.FromResult(choice switch
         {
-            JevToolChoice.ProbeCodex when HasTool(available, Jev.Core.Tools.JevCodexTools.ProbeName)
+            JevToolChoice.ProbeCodex
                 => FunctionCall(Jev.Core.Tools.JevCodexTools.ProbeName),
-            JevToolChoice.ScaffoldHelloConsole when HasTool(available, Jev.Core.Tools.JevCodexTools.ScaffoldHelloConsoleName)
+            JevToolChoice.ScaffoldHelloConsole
                 => FunctionCall(Jev.Core.Tools.JevCodexTools.ScaffoldHelloConsoleName),
-            JevToolChoice.RunCodingTask when HasTool(available, Jev.Core.Tools.JevCodexTools.RunCodingTaskName)
+            JevToolChoice.RunCodingTask
                 => FunctionCall(
                     Jev.Core.Tools.JevCodexTools.RunCodingTaskName,
                     new Dictionary<string, object?> { ["prompt"] = userText }),
@@ -78,9 +80,6 @@ public sealed class FallbackJevChatClient : IChatClient
     {
     }
 
-    private static bool HasTool(IReadOnlyDictionary<string, AIFunction> tools, string name)
-        => tools.ContainsKey(name);
-
     private static ChatResponse FunctionCall(string name, IDictionary<string, object?>? arguments = null)
     {
         var call = new FunctionCallContent(Guid.NewGuid().ToString("n")[..8], name, arguments);
@@ -90,12 +89,6 @@ public sealed class FallbackJevChatClient : IChatClient
     private static ChatResponse TextResponse(string text)
         => new(new ChatMessage(ChatRole.Assistant, text));
 
-    private static string LastUserText(IEnumerable<ChatMessage> messages)
-        => messages
-            .LastOrDefault(message => message.Role == ChatRole.User)
-            ?.Text
-            ?.Trim() ?? "";
-
     private static string SummarizeToolResult(FunctionResultContent result)
     {
         var body = result.Result?.ToString();
@@ -104,12 +97,20 @@ public sealed class FallbackJevChatClient : IChatClient
             return "Codex returned an empty result. I will not invent what happened.";
         }
 
+        var suffix = body.Contains("not found", StringComparison.OrdinalIgnoreCase)
+                     || body.Contains("did not complete", StringComparison.OrdinalIgnoreCase)
+                     || body.Contains("not available", StringComparison.OrdinalIgnoreCase)
+            ? """
+
+              If Codex is not installed, install the Codex CLI, put it on PATH, and retry. I will not pretend the files were written.
+              """
+            : "";
+
         return $"""
             I delegated that to Codex and here is the structured result.
 
             {body}
-
-            If Codex is not installed, install the Codex CLI, put it on PATH, and retry. I will not pretend the files were written.
+            {suffix}
             """;
     }
 

@@ -35,6 +35,23 @@ public sealed class FallbackJevChatClientTests
         Assert.Empty(response.Messages.SelectMany(message => message.Contents).OfType<FunctionCallContent>());
     }
 
+    [Fact]
+    public async Task Follow_up_coding_ask_does_not_reuse_previous_tool_result()
+    {
+        using var client = new FallbackJevChatClient();
+        var response = await client.GetResponseAsync(
+        [
+            new ChatMessage(ChatRole.User, "Is Codex available?"),
+            new ChatMessage(ChatRole.Assistant, [new FunctionCallContent("1", JevCodexTools.ProbeName)]),
+            new ChatMessage(ChatRole.Tool, [new FunctionResultContent("1", "Codex CLI is not available")]),
+            new ChatMessage(ChatRole.Assistant, "I delegated that to Codex."),
+            new ChatMessage(ChatRole.User, "Scaffold a hello console app in a temp workspace")
+        ]);
+
+        var call = response.Messages.SelectMany(message => message.Contents).OfType<FunctionCallContent>().Single();
+        Assert.Equal(JevCodexTools.ScaffoldHelloConsoleName, call.Name);
+    }
+
     private static AIFunction DummyFunction(string name)
         => AIFunctionFactory.Create(() => "ok", name);
 }

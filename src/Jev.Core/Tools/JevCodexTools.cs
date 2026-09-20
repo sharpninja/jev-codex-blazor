@@ -24,19 +24,24 @@ public sealed class JevCodexTools(ICodexCli codex, IJevRunStatus status)
         [Description("Self-contained instruction for Codex, including the goal, constraints, and expected artifacts.")]
         string prompt,
         [Description("Workspace directory. Leave empty to use a new temp workspace.")]
-        string? workingDirectory,
+        string workingDirectory = "",
         [Description("Optional Codex sandbox: read-only, workspace-write, or danger-full-access.")]
-        string? sandbox,
+        string sandbox = "",
         [Description("Optional Codex thread id to resume.")]
-        string? sessionId,
-        CancellationToken cancellationToken)
-        => ExecAsync(prompt, workingDirectory, sandbox, sessionId, cancellationToken);
+        string sessionId = "",
+        CancellationToken cancellationToken = default)
+        => ExecAsync(
+            prompt,
+            NullIfEmpty(workingDirectory),
+            NullIfEmpty(sandbox),
+            NullIfEmpty(sessionId),
+            cancellationToken);
 
     [Description("Demo path: scaffold a hello console app in a fresh temp workspace via Codex.")]
     public Task<string> ScaffoldHelloConsoleAsync(
         [Description("Optional workspace directory. Leave empty to create a temp folder.")]
-        string? workingDirectory,
-        CancellationToken cancellationToken)
+        string workingDirectory = "",
+        CancellationToken cancellationToken = default)
     {
         const string prompt = """
             Scaffold a tiny hello-world console application in this empty workspace.
@@ -48,8 +53,16 @@ public sealed class JevCodexTools(ICodexCli codex, IJevRunStatus status)
             - Keep the change set small and explain the files you created.
             """;
 
-        return ExecAsync(prompt, workingDirectory, CodexSandbox.WorkspaceWrite, sessionId: null, cancellationToken);
+        return ExecAsync(
+            prompt,
+            NullIfEmpty(workingDirectory),
+            CodexSandbox.WorkspaceWrite,
+            sessionId: null,
+            cancellationToken);
     }
+
+    private static string? NullIfEmpty(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value;
 
     private async Task<string> ExecAsync(
         string prompt,
