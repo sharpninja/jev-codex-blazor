@@ -14,10 +14,11 @@
     <PayloadRoot Condition="'$(PayloadRoot)' == ''">$(MSBuildThisFileDirectory)payload</PayloadRoot>
   </PropertyGroup>
   <ItemGroup Condition="Exists('$(PayloadRoot)')">
+    <!-- PackAsTool includes output files under tools/tfm/any/. Do not also set PackagePath — a file named Jev would become a directory in the nupkg. -->
     <Content Include="$(PayloadRoot)\**\*"
-             Pack="true"
-             PackagePath="tools\$(TargetFramework)\any\payload\%(RecursiveDir)%(Filename)%(Extension)"
+             Pack="false"
              CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest"
              Link="payload\%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>
