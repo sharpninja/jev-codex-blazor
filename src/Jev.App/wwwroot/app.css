@@ -34,6 +34,10 @@ button, textarea {
     min-height: 100vh;
 }
 
+.app.with-cli {
+    grid-template-columns: 300px minmax(0, 1fr) minmax(280px, 380px);
+}
+
 .rail {
     padding: 1.5rem 1.25rem;
     border-right: 1px solid var(--line);
@@ -172,6 +176,23 @@ button, textarea {
     border-bottom: 1px solid var(--line);
 }
 
+.status-bar .grow { flex: 1; }
+
+.status-toggle {
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--text);
+    border-radius: 0.6rem;
+    padding: 0.3rem 0.65rem;
+    cursor: pointer;
+    font-size: 0.82rem;
+}
+
+.status-toggle.active {
+    border-color: color-mix(in srgb, var(--accent-2) 50%, var(--line));
+    color: var(--accent-2);
+}
+
 .pill {
     font-size: 0.75rem;
     letter-spacing: 0.06em;
@@ -249,22 +270,95 @@ button, textarea {
     color: var(--accent);
 }
 
-.codex-log {
-    margin: 0 1.4rem 0.6rem;
-    padding: 0.7rem 0.9rem;
-    border: 1px dashed var(--line);
-    border-radius: 0.7rem;
-    background: color-mix(in srgb, var(--surface) 80%, transparent);
+.cli-drawer {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    min-width: 0;
+    border-left: 1px solid var(--line);
+    background: color-mix(in srgb, var(--bg-rail) 88%, transparent);
 }
 
-.codex-log ul {
-    margin: 0.5rem 0 0;
-    padding-left: 1.1rem;
+.cli-drawer header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.75rem 0.9rem;
+    border-bottom: 1px solid var(--line);
+}
+
+.cli-drawer header strong {
+    font-size: 0.92rem;
+}
+
+.cli-drawer-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.cli-drawer-actions label {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
     color: var(--muted);
+    font-size: 0.78rem;
 }
 
-.codex-log code {
-    color: var(--accent-2);
+.cli-drawer-actions button {
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--text);
+    border-radius: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+    font-size: 0.78rem;
+}
+
+.cli-log {
+    margin: 0;
+    padding: 0.7rem 0.85rem 1rem;
+    overflow: auto;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.cli-empty {
+    color: var(--muted);
+    font-size: 0.88rem;
+    line-height: 1.45;
+}
+
+.cli-line {
+    display: grid;
+    grid-template-columns: 4.4rem minmax(0, 1fr);
+    gap: 0.45rem;
+    align-items: start;
+}
+
+.cli-ch {
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding-top: 0.18rem;
+}
+
+.cli-line.input .cli-ch { color: var(--accent-2); }
+.cli-line.stdout .cli-ch { color: var(--accent); }
+.cli-line.stderr .cli-ch { color: var(--error); }
+.cli-line.system .cli-ch { color: var(--warn); }
+
+.cli-line pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    color: var(--text);
 }
 
 .composer {
@@ -313,7 +407,21 @@ button, textarea {
 
 #blazor-error-ui.reload { color: white; }
 
+@media (max-width: 1100px) {
+    .app.with-cli { grid-template-columns: 300px minmax(0, 1fr); }
+    .cli-drawer {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: min(380px, 100vw);
+        z-index: 4;
+        box-shadow: var(--shadow);
+    }
+}
+
 @media (max-width: 860px) {
-    .app { grid-template-columns: 1fr; }
+    .app, .app.with-cli { grid-template-columns: 1fr; }
     .rail { border-right: 0; border-bottom: 1px solid var(--line); }
+    .cli-drawer { width: 100vw; }
 }
