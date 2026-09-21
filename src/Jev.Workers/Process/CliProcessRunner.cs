@@ -24,13 +24,7 @@ public sealed class CliProcessRunner : ICliProcessRunner
         IProgress<string>? stderrLine,
         CancellationToken cancellationToken)
     {
-        startInfo.UseShellExecute = false;
-        startInfo.RedirectStandardInput = true;
-        startInfo.RedirectStandardOutput = true;
-        startInfo.RedirectStandardError = true;
-        startInfo.CreateNoWindow = true;
-        startInfo.StandardOutputEncoding = Encoding.UTF8;
-        startInfo.StandardErrorEncoding = Encoding.UTF8;
+        ProcessUtf8.ConfigureRedirects(startInfo);
 
         var requested = startInfo.FileName;
         if (!CliExecutableResolver.TryApply(startInfo, _environment))
@@ -57,7 +51,7 @@ public sealed class CliProcessRunner : ICliProcessRunner
 
         if (!string.IsNullOrEmpty(standardInput))
         {
-            await process.StandardInput.WriteAsync(standardInput.AsMemory(), cancellationToken);
+            await ProcessUtf8.WriteStdinAsync(process.StandardInput.BaseStream, standardInput, cancellationToken);
         }
 
         process.StandardInput.Close();
