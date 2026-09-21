@@ -112,11 +112,11 @@ internal sealed class CliCallStub : IDisposable
     }
 
     private string BuildUnixShell()
-        => $$"""
+        => ApplyTokens("""
             #!/bin/sh
             set -e
-            CAPTURE='{{CaptureDirectory.Replace("'", "'\\''")}}'
-            KIND='{{CommandName}}'
+            CAPTURE='__CAPTURE__'
+            KIND='__KIND__'
 
             has() {
               needle=$1
@@ -183,8 +183,8 @@ internal sealed class CliCallStub : IDisposable
                   python3 -c 'from pathlib import Path; import sys; Path(sys.argv[1]).read_bytes().decode("utf-8")' "$CAPTURE/stdin.bin" \
                     || fail "invalid UTF-8 stdin"
                 fi
-                printf '%s\n' '{"type":"thread.started","thread_id":"{{SessionId}}"}'
-                printf '%s\n' '{"type":"item.completed","item":{"type":"agent_message","text":"{{SuccessMarker}}"}}'
+                printf '%s\n' '{"type":"thread.started","thread_id":"__SESSION__"}'
+                printf '%s\n' '{"type":"item.completed","item":{"type":"agent_message","text":"__MARKER__"}}'
                 ;;
               claude)
                 has -p "$@" || fail "missing -p"
@@ -193,7 +193,7 @@ internal sealed class CliCallStub : IDisposable
                 has --permission-mode "$@" || fail "missing --permission-mode"
                 has acceptEdits "$@" || fail "missing acceptEdits"
                 has --allowedTools "$@" || fail "missing --allowedTools"
-                printf '%s\n' '{"result":"{{SuccessMarker}}","session_id":"{{SessionId}}"}'
+                printf '%s\n' '{"result":"__MARKER__","session_id":"__SESSION__"}'
                 ;;
               grok)
                 has -p "$@" || fail "missing -p"
@@ -201,7 +201,7 @@ internal sealed class CliCallStub : IDisposable
                 has streaming-json "$@" || fail "missing streaming-json"
                 has --cwd "$@" || fail "missing --cwd"
                 has --always-approve "$@" || fail "missing --always-approve"
-                printf '%s\n' '{"result":"{{SuccessMarker}}","session_id":"{{SessionId}}"}'
+                printf '%s\n' '{"result":"__MARKER__","session_id":"__SESSION__"}'
                 ;;
               cline)
                 has --json "$@" || fail "missing --json"
@@ -209,19 +209,26 @@ internal sealed class CliCallStub : IDisposable
                 has --auto-approve "$@" || fail "missing --auto-approve"
                 has --cwd "$@" || fail "missing --cwd"
                 has --timeout "$@" || fail "missing --timeout"
-                printf '%s\n' '{"result":"{{SuccessMarker}}","session_id":"{{SessionId}}"}'
+                printf '%s\n' '{"result":"__MARKER__","session_id":"__SESSION__"}'
                 ;;
               *)
                 fail "unknown stub kind $KIND"
                 ;;
             esac
-            """;
+            """);
+
+    private string ApplyTokens(string template)
+        => template
+            .Replace("__CAPTURE__", CaptureDirectory, StringComparison.Ordinal)
+            .Replace("__KIND__", CommandName, StringComparison.Ordinal)
+            .Replace("__SESSION__", SessionId, StringComparison.Ordinal)
+            .Replace("__MARKER__", SuccessMarker, StringComparison.Ordinal);
 
     private string BuildPowerShell()
-        => $$"""
+        => ApplyTokens("""
             $ErrorActionPreference = 'Stop'
-            $capture = '{{CaptureDirectory.Replace("'", "''")}}'
-            $kind = '{{CommandName}}'
+            $capture = '__CAPTURE__'
+            $kind = '__KIND__'
             $argv = @($args)
 
             function Fail([string]$message) {
@@ -279,8 +286,8 @@ internal sealed class CliCallStub : IDisposable
                 if ($bytes.Length -eq 0) { Fail 'empty stdin' }
                 $utf8 = New-Object System.Text.UTF8Encoding $false, $true
                 try { $null = $utf8.GetString($bytes) } catch { Fail 'invalid UTF-8 stdin' }
-                Write-Output '{"type":"thread.started","thread_id":"{{SessionId}}"}'
-                Write-Output '{"type":"item.completed","item":{"type":"agent_message","text":"{{SuccessMarker}}"}}'
+                Write-Output '{"type":"thread.started","thread_id":"__SESSION__"}'
+                Write-Output '{"type":"item.completed","item":{"type":"agent_message","text":"__MARKER__"}}'
               }
               'claude' {
                 if (-not (Has '-p')) { Fail 'missing -p' }
@@ -289,7 +296,7 @@ internal sealed class CliCallStub : IDisposable
                 if (-not (Has '--permission-mode')) { Fail 'missing --permission-mode' }
                 if (-not (Has 'acceptEdits')) { Fail 'missing acceptEdits' }
                 if (-not (Has '--allowedTools')) { Fail 'missing --allowedTools' }
-                Write-Output '{"result":"{{SuccessMarker}}","session_id":"{{SessionId}}"}'
+                Write-Output '{"result":"__MARKER__","session_id":"__SESSION__"}'
               }
               'grok' {
                 if (-not (Has '-p')) { Fail 'missing -p' }
@@ -297,7 +304,7 @@ internal sealed class CliCallStub : IDisposable
                 if (-not (Has 'streaming-json')) { Fail 'missing streaming-json' }
                 if (-not (Has '--cwd')) { Fail 'missing --cwd' }
                 if (-not (Has '--always-approve')) { Fail 'missing --always-approve' }
-                Write-Output '{"result":"{{SuccessMarker}}","session_id":"{{SessionId}}"}'
+                Write-Output '{"result":"__MARKER__","session_id":"__SESSION__"}'
               }
               'cline' {
                 if (-not (Has '--json')) { Fail 'missing --json' }
@@ -305,9 +312,9 @@ internal sealed class CliCallStub : IDisposable
                 if (-not (Has '--auto-approve')) { Fail 'missing --auto-approve' }
                 if (-not (Has '--cwd')) { Fail 'missing --cwd' }
                 if (-not (Has '--timeout')) { Fail 'missing --timeout' }
-                Write-Output '{"result":"{{SuccessMarker}}","session_id":"{{SessionId}}"}'
+                Write-Output '{"result":"__MARKER__","session_id":"__SESSION__"}'
               }
               default { Fail "unknown stub kind $kind" }
             }
-            """;
+            """);
 }

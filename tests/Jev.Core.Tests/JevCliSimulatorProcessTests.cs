@@ -109,18 +109,15 @@ public sealed class JevCliSimulatorProcessTests
         };
         var marker = Marker(kind);
         var session = Session(kind);
+        var threadJson = "{\"type\":\"thread.started\",\"thread_id\":\"" + session + "\"}";
+        var messageJson = "{\"type\":\"item.completed\",\"item\":{\"type\":\"agent_message\",\"text\":\"" + marker + "\"}}";
+        var resultJson = "{\"result\":\"" + marker + "\",\"session_id\":\"" + session + "\"}";
         var success = kind == CodingStrategyKind.Codex
-            ? $$"""
-                echo {"type":"thread.started","thread_id":"{{session}}"}
-                echo {"type":"item.completed","item":{"type":"agent_message","text":"{{marker}}"}}
-                """
-            : $$"""echo {"result":"{{marker}}","session_id":"{{session}}"}""";
+            ? "echo " + threadJson + Environment.NewLine + "echo " + messageJson
+            : "echo " + resultJson;
         var unixSuccess = kind == CodingStrategyKind.Codex
-            ? $$"""
-                echo '{"type":"thread.started","thread_id":"{{session}}"}'
-                echo '{"type":"item.completed","item":{"type":"agent_message","text":"{{marker}}"}}'
-                """
-            : $$"""echo '{"result":"{{marker}}","session_id":"{{session}}"}'""";
+            ? "echo '" + threadJson + "'" + Environment.NewLine + "echo '" + messageJson + "'"
+            : "echo '" + resultJson + "'";
 
         if (OperatingSystem.IsWindows())
         {
