@@ -100,7 +100,29 @@ internal sealed class CliCallStub : IDisposable
         {
             var file = System.IO.Path.Combine(Path, CommandName + ".ps1");
             File.WriteAllText(file, BuildPowerShell(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-            return file;
+            if (Kind != CodingStrategyKind.Codex)
+            {
+                return file;
+            }
+
+            // Windows PowerShell -File rejects Codex's literal "-" stdin argument.
+            // Preserve native CLI arguments in child-only environment variables.
+            var launcher = System.IO.Path.Combine(Path, CommandName + ".cmd");
+            File.WriteAllText(launcher, $$"""
+                @echo off
+                setlocal DisableDelayedExpansion
+                set "JEV_STUB_ARGC=0"
+                :capture
+                if "%~1"=="" goto run
+                set "JEV_STUB_ARG_%JEV_STUB_ARGC%=%~1"
+                set /a JEV_STUB_ARGC+=1 >nul
+                shift /1
+                goto capture
+                :run
+                "%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "%~dp0{{CommandName}}.ps1"
+                exit /b %errorlevel%
+                """, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            return launcher;
         }
 
         var unix = System.IO.Path.Combine(Path, CommandName);
@@ -233,6 +255,11 @@ internal sealed class CliCallStub : IDisposable
             $capture = '__CAPTURE__'
             $kind = '__KIND__'
             $argv = @($args)
+            if ($kind -eq 'codex') {
+              $argv = @(for ($i = 0; $i -lt [int]$env:JEV_STUB_ARGC; $i++) {
+                [Environment]::GetEnvironmentVariable("JEV_STUB_ARG_$i")
+              })
+            }
 
             function Fail([string]$message) {
               [Console]::Error.WriteLine($message)
