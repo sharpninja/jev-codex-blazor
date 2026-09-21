@@ -18,6 +18,14 @@ internal sealed class RecordingStrategy : ICodingAgentStrategy
 
     public IReadOnlyList<CodingProgress> ProgressToReport { get; init; } = [];
 
+    public bool RunFailed { get; init; }
+
+    public string? RunError { get; init; }
+
+    public string? RunFinalMessage { get; init; }
+
+    public string DefaultWorkspace { get; init; } = "/tmp/jev-test";
+
     public CodingStrategyKind Kind { get; init; } = CodingStrategyKind.Codex;
 
     public string DisplayName { get; init; } = "Codex";
@@ -102,15 +110,17 @@ internal sealed class RecordingStrategy : ICodingAgentStrategy
 
         return Task.FromResult(new CodingTaskResult
         {
-            Succeeded = true,
-            ExitCode = 0,
+            Succeeded = !RunFailed,
+            ExitCode = RunFailed ? 1 : 0,
             SessionId = "thread-test",
-            FinalMessage = "I'm Jev, simulated by Codex. Created Program.cs",
+            FinalMessage = RunFinalMessage ?? "I'm Jev, simulated by Codex. Created Program.cs",
+            Error = RunFailed ? RunError ?? $"{DisplayName} exited 1." : null,
             CommandLine = "codex exec --json -",
-            WorkingDirectory = request.WorkingDirectory ?? "/tmp/jev-test",
+            WorkingDirectory = request.WorkingDirectory ?? DefaultWorkspace,
             Strategy = DisplayName,
             ChangedFiles = ["Program.cs"],
-            CommandsRun = ["dotnet new console"]
+            CommandsRun = ["dotnet new console"],
+            Stderr = RunFailed ? "agent failed" : ""
         });
     }
 }

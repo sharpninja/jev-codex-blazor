@@ -57,7 +57,6 @@ public sealed class JevCliSimulator(
             return JevSimulationTurn.Error(error);
         }
 
-        _workspace ??= WorkspacePath.Ensure(null, null, createIfMissing: true);
         var prompt = JevPromptBuilder.Build(
             persona.LoadInstructions(),
             selector.Active.DisplayName,
@@ -88,7 +87,7 @@ public sealed class JevCliSimulator(
             _sessionId = result.SessionId;
         }
 
-        if (string.IsNullOrWhiteSpace(_workspace) && !string.IsNullOrWhiteSpace(result.WorkingDirectory))
+        if (!string.IsNullOrWhiteSpace(result.WorkingDirectory))
         {
             _workspace = result.WorkingDirectory;
         }
@@ -124,16 +123,13 @@ public sealed class JevCliSimulator(
 
     private static string ChooseReply(CodingTaskResult result)
     {
-        if (!string.IsNullOrWhiteSpace(result.FinalMessage))
+        if (!result.Succeeded)
         {
-            return result.FinalMessage;
+            return result.FormatForAgent();
         }
 
-        if (!string.IsNullOrWhiteSpace(result.Error))
-        {
-            return result.Error;
-        }
-
-        return result.FormatForAgent();
+        return string.IsNullOrWhiteSpace(result.FinalMessage)
+            ? result.FormatForAgent()
+            : result.FinalMessage;
     }
 }

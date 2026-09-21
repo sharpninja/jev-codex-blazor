@@ -86,11 +86,45 @@ public sealed class JevCliSimulatorTests
 
         Assert.Equal(2, worker.Requests.Count);
         Assert.Null(worker.Requests[0].SessionId);
+        Assert.Null(worker.Requests[0].WorkingDirectory);
         Assert.Equal("thread-test", worker.Requests[1].SessionId);
-        Assert.Equal(worker.Requests[0].WorkingDirectory, worker.Requests[1].WorkingDirectory);
+        Assert.Equal("/tmp/jev-test", worker.Requests[1].WorkingDirectory);
+        Assert.Equal("/tmp/jev-test", simulator.Workspace);
         Assert.Contains("hello", worker.Prompts[1], StringComparison.Ordinal);
         Assert.Contains("create a file in this workspace", worker.Prompts[1], StringComparison.Ordinal);
         Assert.True(second.Succeeded);
+    }
+
+    [Fact]
+    public async Task First_turn_lets_the_worker_choose_its_configured_workspace()
+    {
+        var worker = new RecordingStrategy { DefaultWorkspace = "/tmp/configured-project" };
+        var simulator = Create(worker);
+
+        await simulator.SendAsync("who are you?");
+
+        Assert.Null(worker.Requests[0].WorkingDirectory);
+        Assert.Equal("/tmp/configured-project", simulator.Workspace);
+    }
+
+    [Fact]
+    public async Task Failed_worker_run_surfaces_error_and_stderr_not_only_the_final_message()
+    {
+        var worker = new RecordingStrategy
+        {
+            RunFailed = true,
+            RunFinalMessage = "I started the scaffold.",
+            RunError = "Codex exited 1. permission denied"
+        };
+        var simulator = Create(worker);
+
+        var result = await simulator.SendAsync("scaffold a hello console app");
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("permission denied", result.Text, StringComparison.Ordinal);
+        Assert.Contains("did not complete successfully", result.Text, StringComparison.Ordinal);
+        Assert.Contains("agent failed", result.Text, StringComparison.Ordinal);
+        Assert.Contains("I started the scaffold.", result.Text, StringComparison.Ordinal);
     }
 
     [Fact]
