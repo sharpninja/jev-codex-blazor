@@ -327,21 +327,20 @@
             }
         }
 
-        await ShowCopyFeedbackAsync(copied);
-    }
-
-    private async Task ShowCopyFeedbackAsync(bool copied)
-    {
+        // Do not await the reset delay in this handler — Blazor Server
+        // flushes the click render when the handler returns.
         _copyFeedbackCts?.Cancel();
         _copyFeedbackCts?.Dispose();
         _copyFeedbackCts = new CancellationTokenSource();
-        var token = _copyFeedbackCts.Token;
-
         _copyLabel = copied ? "Copied" : "Copy failed";
-        await InvokeAsync(StateHasChanged);
+        _ = ResetCopyLabelAfterDelayAsync(_copyFeedbackCts.Token);
+    }
+
+    private async Task ResetCopyLabelAfterDelayAsync(CancellationToken token)
+    {
         try
         {
-            await Task.Delay(TimeSpan.FromSeconds(1.5), token);
+            await Task.Delay(2000, token);
             _copyLabel = "Copy all";
             await InvokeAsync(StateHasChanged);
         }
