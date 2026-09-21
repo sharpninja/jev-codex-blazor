@@ -22,7 +22,7 @@ public sealed class CodingAvailability
 
     public string? Error { get; init; }
 
-    public bool IsReady => IsInstalled && IsLoggedIn != false;
+    public bool IsReady => IsInstalled && IsLoggedIn != false && string.IsNullOrWhiteSpace(Error);
 
     public string FormatForAgent()
     {
@@ -39,6 +39,11 @@ public sealed class CodingAvailability
         if (IsLoggedIn == false)
         {
             return $"{Kind} worker is installed but not logged in. {Error ?? SubscriptionAuth.NotLoggedInMessage(Kind, Kind.ToString())}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(Error))
+        {
+            return $"{Kind} worker is installed at '{ExecutablePath}' but a probe command failed. {Error}";
         }
 
         if (IsLoggedIn is null)

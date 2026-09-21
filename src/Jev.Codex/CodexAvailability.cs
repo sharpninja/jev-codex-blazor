@@ -28,6 +28,11 @@ public sealed class CodexAvailability
             return $"Codex CLI is installed but not logged in. {Error ?? $"Run `{LoginCommand}` once with a ChatGPT subscription. Do not set OPENAI_API_KEY for Codex."}";
         }
 
+        if (!string.IsNullOrWhiteSpace(Error))
+        {
+            return $"Codex CLI is installed at '{ExecutablePath}' but a probe command failed. {Error}";
+        }
+
         return $"Codex CLI is available at '{ExecutablePath}'{(string.IsNullOrWhiteSpace(Version) ? "." : $": {Version}")} Sign in with `{LoginCommand}` (ChatGPT subscription) if you have not already.";
     }
 }

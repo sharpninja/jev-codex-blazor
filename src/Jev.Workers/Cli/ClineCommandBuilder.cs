@@ -2,7 +2,13 @@ namespace Jev.Workers.Cli;
 
 public sealed class ClineCommandBuilder(ClineCliOptions options)
 {
-    public IReadOnlyList<string> BuildVersionArguments() => ["--version"];
+    /// <summary>
+    /// Current Cline docs verify with <c>cline version</c> (also <c>-V</c> / <c>--version</c>).
+    /// </summary>
+    public IReadOnlyList<string> BuildVersionArguments() => ["version"];
+
+    public IReadOnlyList<IReadOnlyList<string>> BuildVersionArgumentCandidates()
+        => [BuildVersionArguments(), ["--version"], ["-V"]];
 
     /// <summary>Cline signs in with <c>cline auth</c>; there is no documented non-interactive status command.</summary>
     public IReadOnlyList<string>? BuildAuthStatusArguments() => null;

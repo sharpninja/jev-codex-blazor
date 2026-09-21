@@ -25,6 +25,9 @@ public abstract class ProcessCodingStrategy(
 
     protected abstract IReadOnlyList<string> BuildVersionArguments();
 
+    protected virtual IReadOnlyList<IReadOnlyList<string>> BuildVersionArgumentCandidates()
+        => [BuildVersionArguments()];
+
     protected abstract IReadOnlyList<string>? BuildAuthStatusArguments();
 
     protected abstract IReadOnlyList<string> BuildExecArguments(CodingTaskRequest request, string workingDirectory);
@@ -40,12 +43,29 @@ public abstract class ProcessCodingStrategy(
 
         try
         {
-            var versionInfo = CreateStartInfo(ExecutablePath, BuildVersionArguments(), Directory.GetCurrentDirectory());
-            var versionRun = await processRunner.RunAsync(versionInfo, null, null, null, cancellationToken);
-            var version = (versionRun.Stdout + " " + versionRun.Stderr).Trim().ReplaceLineEndings(" ");
-            if (versionRun.ExitCode != 0)
+            var displayPath = ResolvedDisplayPath();
+            CliProcessRunResult? versionRun = null;
+            IReadOnlyList<string> versionArgs = [];
+            foreach (var candidate in BuildVersionArgumentCandidates())
             {
-                return Missing($"'{ExecutablePath} --version' exited {versionRun.ExitCode}.");
+                var versionInfo = CreateStartInfo(ExecutablePath, candidate, Directory.GetCurrentDirectory());
+                versionRun = await processRunner.RunAsync(versionInfo, null, null, null, cancellationToken);
+                versionArgs = candidate;
+                if (versionRun.ExitCode == 0)
+                {
+                    break;
+                }
+            }
+
+            var version = versionRun is null
+                ? ""
+                : (versionRun.Stdout + " " + versionRun.Stderr).Trim().ReplaceLineEndings(" ");
+            if (versionRun is null || versionRun.ExitCode != 0)
+            {
+                var invoked = string.Join(' ', versionArgs);
+                return InstalledUnhealthy(
+                    displayPath,
+                    $"'{displayPath} {invoked}' exited {versionRun?.ExitCode ?? -1}.");
             }
 
             var authArgs = BuildAuthStatusArguments();
@@ -57,7 +77,7 @@ public abstract class ProcessCodingStrategy(
                     IsInstalled = true,
                     IsLoggedIn = null,
                     Version = string.IsNullOrWhiteSpace(version) ? null : version,
-                    ExecutablePath = ExecutablePath,
+                    ExecutablePath = displayPath,
                     LoginCommand = this.LoginCommand
                 };
             }
@@ -71,7 +91,7 @@ public abstract class ProcessCodingStrategy(
                 IsInstalled = true,
                 IsLoggedIn = loggedIn,
                 Version = string.IsNullOrWhiteSpace(version) ? null : version,
-                ExecutablePath = ExecutablePath,
+                ExecutablePath = displayPath,
                 LoginCommand = this.LoginCommand,
                 Error = loggedIn ? null : SubscriptionAuth.NotLoggedInMessage(Kind, DisplayName)
             };
@@ -101,7 +121,7 @@ public abstract class ProcessCodingStrategy(
 
         var workingDirectory = WorkspacePath.Ensure(request.WorkingDirectory, DefaultWorkspaceRoot, request.CreateWorkspaceIfMissing);
         var arguments = BuildExecArguments(request, workingDirectory);
-        var commandLine = CliCommandLine.Format(ExecutablePath, arguments);
+        var commandLine = CliCommandLine.Format(ResolvedDisplayPath(), arguments);
         var stdin = StandardInput(request);
         progress?.Report(new CodingProgress(CodingProgress.Starting, $"Starting {DisplayName} in {workingDirectory}"));
         progress?.Report(new CodingProgress(CodingProgress.Input, SecretSanitizer.Redact(commandLine)));
@@ -145,7 +165,9 @@ public abstract class ProcessCodingStrategy(
             ? null
             : SubscriptionAuth.LooksLikeAuthFailure(combined)
                 ? SubscriptionAuth.NotLoggedInMessage(Kind, DisplayName)
-                : (string.IsNullOrWhiteSpace(run.Stderr) ? $"{DisplayName} exited {run.ExitCode}." : run.Stderr.Trim());
+                : (string.IsNullOrWhiteSpace(run.Stderr)
+                    ? $"{DisplayName} exited {run.ExitCode}."
+                    : $"{DisplayName} exited {run.ExitCode}. {run.Stderr.Trim()}");
 
         return new CodingTaskResult
         {
@@ -183,6 +205,20 @@ public abstract class ProcessCodingStrategy(
             LoginCommand = this.LoginCommand,
             Error = error
         };
+
+    private CodingAvailability InstalledUnhealthy(string executablePath, string error)
+        => new()
+        {
+            Kind = Kind,
+            IsInstalled = true,
+            IsLoggedIn = null,
+            ExecutablePath = executablePath,
+            LoginCommand = this.LoginCommand,
+            Error = error
+        };
+
+    private string ResolvedDisplayPath()
+        => Jev.Codex.CliExecutableResolver.TryResolve(ExecutablePath)?.Path ?? ExecutablePath;
 
     private CodingTaskResult Failed(int exitCode, string workingDirectory, string commandLine, string error)
         => new()

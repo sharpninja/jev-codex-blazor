@@ -5,6 +5,17 @@ namespace Jev.Codex;
 
 public sealed class CodexProcessRunner : ICodexProcessRunner
 {
+    private readonly CliSearchEnvironment _environment;
+
+    public CodexProcessRunner() : this(CliSearchEnvironment.Current)
+    {
+    }
+
+    public CodexProcessRunner(CliSearchEnvironment environment)
+    {
+        _environment = environment;
+    }
+
     public async Task<ProcessRunResult> RunAsync(
         ProcessStartInfo startInfo,
         string? standardInput,
@@ -20,15 +31,21 @@ public sealed class CodexProcessRunner : ICodexProcessRunner
         startInfo.StandardOutputEncoding = Encoding.UTF8;
         startInfo.StandardErrorEncoding = Encoding.UTF8;
 
+        var requested = startInfo.FileName;
+        if (!CliExecutableResolver.TryApply(startInfo, _environment))
+        {
+            throw new CodexNotInstalledException(requested);
+        }
+
         Process process;
         try
         {
             process = Process.Start(startInfo)
-                ?? throw new InvalidOperationException($"Failed to start '{startInfo.FileName}'.");
+                ?? throw new InvalidOperationException($"Failed to start '{requested}'.");
         }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or FileNotFoundException or PlatformNotSupportedException)
         {
-            throw new CodexNotInstalledException(startInfo.FileName, ex);
+            throw new CodexNotInstalledException(requested, ex);
         }
 
         using var _ = process;

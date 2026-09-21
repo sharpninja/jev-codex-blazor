@@ -39,4 +39,18 @@ public sealed class ClineCommandBuilderTests
     [Fact]
     public void BuildAuthStatusArguments_is_absent_because_cline_has_no_status_command()
         => Assert.Null(new ClineCommandBuilder(new ClineCliOptions()).BuildAuthStatusArguments());
+
+    [Fact]
+    public void BuildVersionArguments_uses_cline_version_then_dashed_fallbacks()
+    {
+        var builder = new ClineCommandBuilder(new ClineCliOptions());
+        Assert.Equal(["version"], builder.BuildVersionArguments());
+        Assert.Equal(
+            [
+                ["version"],
+                ["--version"],
+                ["-V"]
+            ],
+            builder.BuildVersionArgumentCandidates());
+    }
 }
