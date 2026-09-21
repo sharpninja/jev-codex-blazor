@@ -137,16 +137,30 @@ NUKE 10.1.0 lives in [`nuke/`](nuke/). From the repo root use `./build.sh` or, o
 ./build.sh PublishAndroid            # fails clearly unless maui-android + Android SDK
 ./build.sh Pack                      # Test + WASM + Linux installers + Windows portable + tool
 ./build.sh PackAll                   # also MAUI Windows/Android; missing SDKs fail, they do not no-op
-./build.sh Release                   # Pack + SHA256SUMS + GitHub prerelease v0.1.0
+./build.sh Release                   # Pack + SHA256SUMS + versioned GitHub release
 ```
+
+Package versions come from [GitVersion](https://gitversion.net/docs/usage/msbuild), pinned in `Directory.Packages.props` and configured in `GitVersion.yml`. NUKE and direct `dotnet pack` use the same calculated `SemVer`. Assemblies include GitVersion's informational version and commit hash. GitVersion is a private build dependency.
+
+Untagged `main` builds use `0.1.1-ci.N` initially, with an increasing commit counter. A version tag such as `v1.2.3` produces `1.2.3`; subsequent commits produce `1.2.4-ci.N`. The initial `next-version` is a migration floor above the previously installed `0.1.0`, not a value to update on each build. Once a release tag establishes the version, that floor can be removed. The old `.version` file is not a version source. Use a full Git checkout with tags; in GitHub Actions, set checkout's `fetch-depth: 0`.
 
 Install the desktop app as a **.NET tool** (recommended):
 
 ```bash
+./build.sh ShowVersion
 ./build.sh PackTool
-dotnet tool install -g Jev.Tool --add-source ./artifacts --version 0.1.0
+# PackTool prints the exact install command using its calculated version.
+dotnet tool install -g Jev.Tool --add-source ./artifacts --version <calculated-semver>
 jev                 # starts payload/linux-x64/Jev or payload/win-x64/Jev.exe
 jev --tool-info     # prints detected RID and binary path
+```
+
+Do not pass the former `--version` or `--release-tag` NUKE parameters: GitVersion now supplies both. `Release` names the GitHub tag `v<SemVer>` and marks only prerelease versions as GitHub prereleases.
+
+After packing, verify the package metadata and version behavior across an isolated Git history:
+
+```powershell
+pwsh -NoProfile -File tests/Verify-PackageVersion.ps1 -PackagePath artifacts/Jev.Tool.<calculated-semver>.nupkg
 ```
 
 Outputs under `artifacts/`:

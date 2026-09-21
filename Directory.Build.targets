@@ -1,0 +1,8 @@
+<Project>
+  <!-- Use the same SemVer for NuGet identity and NUKE artifact names. -->
+  <Target Name="SetPackageSemVer" AfterTargets="GetVersion" Condition="'$(GitVersion_SemVer)' != ''">
+    <PropertyGroup>
+      <PackageVersion>$(GitVersion_SemVer)</PackageVersion>
+    </PropertyGroup>
+  </Target>
+</Project>

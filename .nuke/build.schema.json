@@ -36,6 +36,7 @@
         "PublishWindowsPortable",
         "Release",
         "Restore",
+        "ShowVersion",
         "Test"
       ]
     },
@@ -116,12 +117,6 @@
             "Debug",
             "Release"
           ]
-        },
-        "ReleaseTag": {
-          "type": "string"
-        },
-        "Version": {
-          "type": "string"
         }
       }
     },

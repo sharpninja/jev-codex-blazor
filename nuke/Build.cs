@@ -16,9 +16,12 @@ public class Build : NukeBuild
 
     [Parameter] public readonly Configuration Configuration = IsLocalBuild ? Configuration.Debug : Configuration.Release;
 
-    [Parameter] public readonly string Version = "0.1.0";
+    string Version => GitVersionInformation.SemVer;
 
-    [Parameter] public readonly string ReleaseTag = "v0.1.0";
+    string ReleaseTag => $"v{Version}";
+
+    Target ShowVersion => _ => _
+        .Executes(() => Log.Information("Package version: {Version}", Version));
 
     AbsolutePath ArtifactsDirectory => RootDirectory / "artifacts";
     AbsolutePath SolutionFile => RootDirectory / "Jev.slnx";
@@ -227,9 +230,7 @@ public class Build : NukeBuild
             .SetProject(ToolProject)
             .SetConfiguration(Configuration.Release)
             .SetOutputDirectory(ArtifactsDirectory)
-            .SetProperty("PayloadRoot", payload)
-            .SetVersion(Version)
-            .SetProperty("InformationalVersion", Version));
+            .SetProperty("PayloadRoot", payload));
         if (!File.Exists(ToolNupkg))
         {
             Assert.Fail($"dotnet pack finished but {ToolNupkg} was not produced.");
@@ -462,7 +463,10 @@ public class Build : NukeBuild
         arguments.Append($"release create {ReleaseTag} ");
         arguments.Append($"--title \"Jev {Version}\" ");
         arguments.Append($"--notes-file \"{notes}\" ");
-        arguments.Append("--prerelease ");
+        if (!string.IsNullOrEmpty(GitVersionInformation.PreReleaseTag))
+        {
+            arguments.Append("--prerelease ");
+        }
         arguments.Append($"--target {GetCurrentCommit()} ");
         arguments.Append(string.Join(' ', assets));
 
