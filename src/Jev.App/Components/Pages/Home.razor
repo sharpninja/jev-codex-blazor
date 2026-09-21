@@ -12,7 +12,7 @@
             <div class="mark" aria-hidden="true">J</div>
             <div>
                 <h1>Jev</h1>
-                <p>Strategy-backed coding assistant</p>
+                <p>CLI-simulated coding assistant</p>
             </div>
         </div>
 
@@ -22,8 +22,8 @@
                 <dd>@Chat.Host.Name — @(Chat.Host.SupportsLocalCli ? "local CLIs" : "no local CLIs")</dd>
             </div>
             <div>
-                <dt>Orchestration</dt>
-                <dd>@Chat.Orchestration</dd>
+                <dt>Simulator</dt>
+                <dd>@Chat.Simulator</dd>
             </div>
             <div>
                 <dt>Active worker</dt>
@@ -55,9 +55,10 @@
         </div>
 
         <p class="lede">
-            Chat with Jev. Implementation work is delegated to the selected coding
-            worker through Microsoft Agent Framework tools — this UI never calls a CLI directly.
-            Workers use subscription login (<code>codex login</code>, <code>claude auth login</code>,
+            Chat with Jev. The selected coding-worker CLI is the conversational
+            and coding brain; Jev is the persona, policy, and harness around it.
+            No orchestration API key is required. Workers use subscription login
+            (<code>codex login</code>, <code>claude auth login</code>,
             <code>grok login</code>, <code>cline auth</code>), not API keys.
             @if (!Chat.Host.SupportsLocalCli)
             {
@@ -92,7 +93,7 @@
             {
                 <div class="empty">
                     <h2>Ready when you are.</h2>
-                    <p>Jev plans and explains. @Chat.Status.ActiveStrategy writes the files.</p>
+                    <p>Jev is simulated by @Chat.Status.ActiveStrategy. Messages go to that CLI.</p>
                     <div class="chips">
                         @foreach (var sample in Samples)
                         {
@@ -120,7 +121,7 @@
             <textarea @bind="_draft"
                       @bind:event="oninput"
                       @onkeydown="OnKeyDown"
-                      placeholder="Ask Jev to plan, probe the coding worker, or scaffold a hello console app…"
+                      placeholder="Ask Jev — the selected CLI answers with the Jev persona…"
                       rows="3"
                       disabled="@_busy"></textarea>
             <button type="submit" disabled="@(_busy || string.IsNullOrWhiteSpace(_draft))">Send</button>

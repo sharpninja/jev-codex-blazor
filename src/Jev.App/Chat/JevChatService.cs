@@ -1,25 +1,19 @@
-using Jev.Core.Agent;
 using Jev.Core.Runtime;
+using Jev.Core.Simulation;
 using Jev.Workers;
-using Microsoft.Agents.AI;
-using Microsoft.Extensions.AI;
 
 namespace Jev.App.Chat;
 
 public sealed class JevChatService(
-    JevAgentHandle handle,
+    JevCliSimulator simulator,
     IJevRunStatus status,
     ICodingStrategySelector selector,
     ICodingHost host,
     ICliTranscript transcript)
 {
-    private AgentSession? _session;
-
     public IJevRunStatus Status => status;
 
-    public string Orchestration => handle.Orchestration;
-
-    public bool UsesFallback => handle.UsesFallbackChatClient;
+    public string Simulator => simulator.Label;
 
     public ICodingStrategySelector Selector => selector;
 
@@ -60,34 +54,18 @@ public sealed class JevChatService(
         Turns.Add(new ChatTurn { Role = "user", Text = trimmed });
         var assistant = new ChatTurn { Role = "jev", IsStreaming = true };
         Turns.Add(assistant);
-        status.SetPhase(JevPhase.Thinking, "Jev is planning");
+        status.SetPhase(JevPhase.Thinking, $"Sending to {selector.Active.DisplayName}");
         await onChanged();
-
-        _session ??= await handle.Agent.CreateSessionAsync(cancellationToken);
 
         try
         {
-            await foreach (var update in handle.Agent.RunStreamingAsync(trimmed, _session, cancellationToken: cancellationToken))
-            {
-                if (update.Contents.OfType<FunctionCallContent>().Any())
-                {
-                    status.SetPhase(JevPhase.RunningWorker, $"Calling {selector.Active.DisplayName}");
-                }
-
-                if (!string.IsNullOrEmpty(update.Text))
-                {
-                    assistant.Text += update.Text;
-                    await onChanged();
-                }
-            }
-
-            if (string.IsNullOrWhiteSpace(assistant.Text))
-            {
-                assistant.Text = "Jev returned an empty reply.";
-            }
-
+            var result = await simulator.SendAsync(trimmed, cancellationToken);
+            assistant.Text = string.IsNullOrWhiteSpace(result.Text)
+                ? $"{selector.Active.DisplayName} returned an empty reply."
+                : result.Text;
+            assistant.IsError = !result.Succeeded;
             assistant.IsStreaming = false;
-            if (status.Phase != JevPhase.Error)
+            if (status.Phase != JevPhase.Error && result.Succeeded)
             {
                 status.SetPhase(JevPhase.Done, "Done");
             }
@@ -97,7 +75,7 @@ public sealed class JevChatService(
             assistant.IsError = true;
             assistant.IsStreaming = false;
             assistant.Text = string.IsNullOrWhiteSpace(assistant.Text)
-                ? $"Jev hit an error: {ex.Message}"
+                ? $"{selector.Active.DisplayName} hit an error: {ex.Message}"
                 : assistant.Text + $"{Environment.NewLine}{Environment.NewLine}Error: {ex.Message}";
             status.SetPhase(JevPhase.Error, ex.Message);
         }
@@ -105,21 +83,11 @@ public sealed class JevChatService(
         await onChanged();
     }
 
-    public async Task ResetAsync()
+    public Task ResetAsync()
     {
         Turns.Clear();
-        if (_session is IAsyncDisposable asyncDisposable)
-        {
-            await asyncDisposable.DisposeAsync();
-        }
-        else if (_session is IDisposable disposable)
-        {
-            disposable.Dispose();
-        }
-
-        _session = null;
-        transcript.Clear();
-        status.SetPhase(JevPhase.Idle, "New conversation");
+        simulator.Reset();
+        return Task.CompletedTask;
     }
 
     private void ApplyActiveAvailability()
@@ -134,5 +102,6 @@ public sealed class JevChatService(
         }
 
         status.SetActiveStrategy(selector.Active.DisplayName);
+        status.SetSimulator(simulator.Label);
     }
 }

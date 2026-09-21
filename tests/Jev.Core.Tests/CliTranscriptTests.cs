@@ -1,6 +1,9 @@
+using Jev.Core;
+using Jev.Core.Persona;
 using Jev.Core.Runtime;
-using Jev.Core.Tools;
+using Jev.Core.Simulation;
 using Jev.Workers;
+using Microsoft.Extensions.Options;
 
 namespace Jev.Core.Tests;
 
@@ -42,7 +45,7 @@ public sealed class CliTranscriptTests
     }
 
     [Fact]
-    public async Task Coding_tools_forward_worker_progress_into_the_transcript()
+    public async Task Simulator_forwards_worker_progress_into_the_transcript()
     {
         var worker = new RecordingStrategy
         {
@@ -55,9 +58,13 @@ public sealed class CliTranscriptTests
         };
         var transcript = new CliTranscript();
         var status = new JevRunStatus();
-        var tools = new JevCodingTools(new FixedSelector(worker), status, transcript);
+        var simulator = new JevCliSimulator(
+            new JevPersona(Options.Create(new JevAgentOptions())),
+            new FixedSelector(worker),
+            status,
+            transcript);
 
-        await tools.RunCodingTaskAsync("scaffold hello");
+        await simulator.SendAsync("scaffold hello");
 
         Assert.Contains(transcript.Lines, line => line.Channel == CliTranscriptChannel.Input && line.Text.Contains("codex"));
         Assert.Contains(transcript.Lines, line => line.Channel == CliTranscriptChannel.Stdout && line.Text == "line-one");
@@ -70,11 +77,15 @@ public sealed class CliTranscriptTests
     {
         var worker = new RecordingStrategy { Unsupported = true };
         var transcript = new CliTranscript();
-        var tools = new JevCodingTools(new FixedSelector(worker), new JevRunStatus(), transcript);
+        var simulator = new JevCliSimulator(
+            new JevPersona(Options.Create(new JevAgentOptions())),
+            new FixedSelector(worker),
+            new JevRunStatus(),
+            transcript);
 
-        var text = await tools.ProbeCodingWorkerAsync(CancellationToken.None);
+        var result = await simulator.SendAsync("Is the coding worker available?");
 
-        Assert.Contains("wasm", text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("wasm", result.Text, StringComparison.OrdinalIgnoreCase);
         Assert.Contains(transcript.Lines, line => line.Channel == CliTranscriptChannel.System && line.Text.Contains("wasm"));
     }
 }

@@ -6,11 +6,25 @@ internal sealed class RecordingStrategy : ICodingAgentStrategy
 {
     public List<string> Prompts { get; } = [];
 
+    public List<CodingTaskRequest> Requests { get; } = [];
+
     public bool Probed { get; private set; }
 
     public bool Unsupported { get; init; }
 
+    public bool Missing { get; init; }
+
+    public bool NotLoggedIn { get; init; }
+
     public IReadOnlyList<CodingProgress> ProgressToReport { get; init; } = [];
+
+    public bool RunFailed { get; init; }
+
+    public string? RunError { get; init; }
+
+    public string? RunFinalMessage { get; init; }
+
+    public string DefaultWorkspace { get; init; } = "/tmp/jev-test";
 
     public CodingStrategyKind Kind { get; init; } = CodingStrategyKind.Codex;
 
@@ -37,12 +51,41 @@ internal sealed class RecordingStrategy : ICodingAgentStrategy
             });
         }
 
+        if (Missing)
+        {
+            return Task.FromResult(new CodingAvailability
+            {
+                Kind = Kind,
+                IsInstalled = false,
+                IsLoggedIn = false,
+                ExecutablePath = ExecutablePath,
+                LoginCommand = LoginCommand,
+                Error = $"{DisplayName} CLI was not found on PATH."
+            });
+        }
+
+        if (NotLoggedIn)
+        {
+            return Task.FromResult(new CodingAvailability
+            {
+                Kind = Kind,
+                IsInstalled = true,
+                IsLoggedIn = false,
+                Version = "test 0.0",
+                ExecutablePath = ExecutablePath,
+                LoginCommand = LoginCommand,
+                Error = $"{DisplayName} CLI is installed but not logged in. Run `{LoginCommand}`."
+            });
+        }
+
         return Task.FromResult(new CodingAvailability
         {
             Kind = Kind,
             IsInstalled = true,
+            IsLoggedIn = true,
             Version = "test 0.0",
-            ExecutablePath = ExecutablePath
+            ExecutablePath = ExecutablePath,
+            LoginCommand = LoginCommand
         });
     }
 
@@ -51,6 +94,7 @@ internal sealed class RecordingStrategy : ICodingAgentStrategy
         IProgress<CodingProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        Requests.Add(request);
         Prompts.Add(request.Prompt);
         if (ProgressToReport.Count == 0)
         {
@@ -66,15 +110,17 @@ internal sealed class RecordingStrategy : ICodingAgentStrategy
 
         return Task.FromResult(new CodingTaskResult
         {
-            Succeeded = true,
-            ExitCode = 0,
+            Succeeded = !RunFailed,
+            ExitCode = RunFailed ? 1 : 0,
             SessionId = "thread-test",
-            FinalMessage = "Created Program.cs",
+            FinalMessage = RunFinalMessage ?? "I'm Jev, simulated by Codex. Created Program.cs",
+            Error = RunFailed ? RunError ?? $"{DisplayName} exited 1." : null,
             CommandLine = "codex exec --json -",
-            WorkingDirectory = "/tmp/jev-test",
+            WorkingDirectory = request.WorkingDirectory ?? DefaultWorkspace,
             Strategy = DisplayName,
             ChangedFiles = ["Program.cs"],
-            CommandsRun = ["dotnet new console"]
+            CommandsRun = ["dotnet new console"],
+            Stderr = RunFailed ? "agent failed" : ""
         });
     }
 }
