@@ -1,5 +1,4 @@
 using System.Text;
-using System.Text.Json;
 using Jev.Codex;
 
 namespace Jev.Workers.Tests;
@@ -64,15 +63,18 @@ internal sealed class CliCallStub : IDisposable
         QueryNpmPrefix = false
     };
 
-    public IReadOnlyList<string>? TryReadArgv()
+    public IReadOnlyList<string> ReadArgv()
     {
-        var json = System.IO.Path.Combine(CaptureDirectory, "argv.json");
-        if (!File.Exists(json))
+        var file = System.IO.Path.Combine(CaptureDirectory, "argv.bin");
+        Assert.True(File.Exists(file), "stub did not capture argv.bin — exec path never ran");
+        var bytes = File.ReadAllBytes(file);
+        if (bytes.Length == 0)
         {
-            return null;
+            return [];
         }
 
-        return JsonSerializer.Deserialize<string[]>(File.ReadAllText(json));
+        var text = Encoding.UTF8.GetString(bytes);
+        return text.TrimEnd('\0').Split('\0');
     }
 
     public byte[] ReadStdin()
@@ -134,9 +136,10 @@ internal sealed class CliCallStub : IDisposable
 
             dump() {
               mkdir -p "$CAPTURE"
-              if command -v python3 >/dev/null 2>&1; then
-                python3 -c 'import json,sys; json.dump(sys.argv[2:], open(sys.argv[1],"w"), ensure_ascii=False)' "$CAPTURE/argv.json" "$@"
-              fi
+              : > "$CAPTURE/argv.bin"
+              for arg in "$@"; do
+                printf '%s\0' "$arg" >> "$CAPTURE/argv.bin"
+              done
               cat > "$CAPTURE/stdin.bin" || true
             }
 
@@ -242,7 +245,14 @@ internal sealed class CliCallStub : IDisposable
 
             function Dump {
               New-Item -ItemType Directory -Force -Path $capture | Out-Null
-              ConvertTo-Json -InputObject @($argv) -Compress | Set-Content -LiteralPath (Join-Path $capture 'argv.json') -Encoding utf8
+              $utf8 = New-Object System.Text.UTF8Encoding $false
+              $ms = New-Object System.IO.MemoryStream
+              foreach ($a in $argv) {
+                $chunk = $utf8.GetBytes([string]$a)
+                $ms.Write($chunk, 0, $chunk.Length)
+                $ms.WriteByte(0)
+              }
+              [System.IO.File]::WriteAllBytes((Join-Path $capture 'argv.bin'), $ms.ToArray())
               $fs = [System.IO.File]::Create((Join-Path $capture 'stdin.bin'))
               try {
                 [Console]::OpenStandardInput().CopyTo($fs)

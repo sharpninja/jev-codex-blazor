@@ -8,9 +8,26 @@ using Microsoft.Extensions.Options;
 
 namespace Jev.Workers.Tests;
 
+/// <summary>
+/// Standing acceptance gate: every coding CLI must have an always-on stubbed
+/// probe+run call test. Do not ship encoding or command-builder work without
+/// these four facts staying green in <c>dotnet test</c>.
+/// </summary>
 public sealed class StrategyProcessCallTests
 {
     public const string NonAsciiPrompt = "Who are you? — café";
+
+    [Fact]
+    public void Every_coding_strategy_kind_has_a_stubbed_call_test()
+        => Assert.Equal(
+            Enum.GetValues<CodingStrategyKind>().OrderBy(kind => kind).ToArray(),
+            new[]
+            {
+                CodingStrategyKind.Codex,
+                CodingStrategyKind.Claude,
+                CodingStrategyKind.GrokBuild,
+                CodingStrategyKind.Cline
+            }.OrderBy(kind => kind).ToArray());
 
     [Fact]
     public async Task Codex_probe_and_run_uses_approval_before_exec_and_utf8_stdin()
@@ -68,11 +85,7 @@ public sealed class StrategyProcessCallTests
             Assert.Contains(argument, result.CommandLine, StringComparison.Ordinal);
         }
 
-        var captured = stub.TryReadArgv();
-        if (captured is not null)
-        {
-            Assert.Equal(expected, captured);
-        }
+        Assert.Equal(expected, stub.ReadArgv());
 
         if (kind == CodingStrategyKind.Codex)
         {
