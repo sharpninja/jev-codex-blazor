@@ -354,6 +354,15 @@ button, textarea {
     font-size: 0.78rem;
 }
 
+.cli-drawer-actions button:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.cli-drawer-actions button.copied {
+    color: var(--accent);
+}
+
 .cli-log {
     margin: 0;
     padding: 0.7rem 0.85rem 1rem;

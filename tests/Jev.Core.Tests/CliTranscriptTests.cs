@@ -45,6 +45,33 @@ public sealed class CliTranscriptTests
     }
 
     [Fact]
+    public void FormatForClipboard_joins_displayed_lines_and_keeps_redaction()
+    {
+        var transcript = new CliTranscript();
+        transcript.Append(CliTranscriptChannel.Input, "codex exec OPENAI_API_KEY=sk-secretsecretsecret");
+        transcript.Append(CliTranscriptChannel.Stdout, "{\"type\":\"thread.started\"}");
+        transcript.Append(CliTranscriptChannel.Stderr, "warn");
+        transcript.Append(CliTranscriptChannel.System, "Starting Codex");
+
+        var text = transcript.FormatForClipboard();
+        var lines = text.Split('\n');
+
+        Assert.Equal(4, lines.Length);
+        Assert.StartsWith("input ", lines[0]);
+        Assert.Contains("[redacted]", lines[0]);
+        Assert.DoesNotContain("sk-secretsecretsecret", text);
+        Assert.Equal("stdout {\"type\":\"thread.started\"}", lines[1]);
+        Assert.Equal("stderr warn", lines[2]);
+        Assert.Equal("system Starting Codex", lines[3]);
+    }
+
+    [Fact]
+    public void FormatForClipboard_empty_transcript_is_empty_string()
+    {
+        Assert.Equal(string.Empty, new CliTranscript().FormatForClipboard());
+    }
+
+    [Fact]
     public async Task Simulator_forwards_worker_progress_into_the_transcript()
     {
         var worker = new RecordingStrategy

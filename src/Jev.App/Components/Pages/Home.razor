@@ -138,6 +138,12 @@
                         <input type="checkbox" @bind="_pauseScroll" />
                         Pause scroll
                     </label>
+                    <button type="button"
+                            class="@(_copyLabel == "Copied" ? "copied" : null)"
+                            title="@(Chat.Transcript.Lines.Count == 0 ? "Nothing to copy" : "Copy all to clipboard")"
+                            disabled="@(Chat.Transcript.Lines.Count == 0)"
+                            aria-live="polite"
+                            @onclick="CopyTranscriptAsync">@_copyLabel</button>
                     <button type="button" @onclick="ClearTranscript">Clear</button>
                     <button type="button" @onclick="ToggleTranscript">Hide</button>
                 </div>
@@ -174,10 +180,12 @@
     private bool _busy;
     private bool _showTranscript;
     private bool _pauseScroll;
+    private string _copyLabel = "Copy all";
     private ElementReference _transcript;
     private ElementReference _cliLog;
     private IJSObjectReference? _js;
     private CancellationTokenSource _cts = new();
+    private CancellationTokenSource? _copyFeedbackCts;
     private bool _disposed;
 
     private string PhaseLabel => Chat.Status.Phase switch
@@ -286,7 +294,66 @@
 
     private void ToggleTranscript() => _showTranscript = !_showTranscript;
 
-    private void ClearTranscript() => Chat.Transcript.Clear();
+    private void ClearTranscript()
+    {
+        Chat.Transcript.Clear();
+        ResetCopyLabel();
+    }
+
+    private async Task CopyTranscriptAsync()
+    {
+        if (Chat.Transcript.Lines.Count == 0)
+        {
+            return;
+        }
+
+        var text = Chat.Transcript.FormatForClipboard();
+        var copied = false;
+        if (_js is not null)
+        {
+            try
+            {
+                copied = await _js.InvokeAsync<bool>("copyText", text);
+            }
+            catch (JSException)
+            {
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+            catch (ObjectDisposedException)
+            {
+                return;
+            }
+        }
+
+        // Do not await the reset delay in this handler — Blazor Server
+        // flushes the click render when the handler returns.
+        _copyFeedbackCts?.Cancel();
+        _copyFeedbackCts?.Dispose();
+        _copyFeedbackCts = new CancellationTokenSource();
+        _copyLabel = copied ? "Copied" : "Copy failed";
+        _ = ResetCopyLabelAfterDelayAsync(_copyFeedbackCts.Token);
+    }
+
+    private async Task ResetCopyLabelAfterDelayAsync(CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(2000, token);
+            _copyLabel = "Copy all";
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (TaskCanceledException)
+        {
+        }
+    }
+
+    private void ResetCopyLabel()
+    {
+        _copyFeedbackCts?.Cancel();
+        _copyLabel = "Copy all";
+    }
 
     private Task SubmitAsync() => SendAsync(_draft);
 
@@ -347,6 +414,8 @@
 
         _disposed = true;
         Chat.Transcript.Changed -= OnTranscriptChanged;
+        _copyFeedbackCts?.Cancel();
+        _copyFeedbackCts?.Dispose();
         _cts.Cancel();
         _cts.Dispose();
     }
