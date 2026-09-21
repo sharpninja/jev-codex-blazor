@@ -338,6 +338,7 @@
         var token = _copyFeedbackCts.Token;
 
         _copyLabel = copied ? "Copied" : "Copy failed";
+        await InvokeAsync(StateHasChanged);
         try
         {
             await Task.Delay(TimeSpan.FromSeconds(1.5), token);
