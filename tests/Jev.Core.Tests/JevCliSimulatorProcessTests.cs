@@ -16,7 +16,20 @@ public sealed class JevCliSimulatorProcessTests
     public async Task Who_are_you_runs_a_real_cli_stub_and_never_uses_the_fallback_router()
     {
         using var dir = new TempDir();
-        var stub = dir.WriteExecutable("codex", """
+        var stub = OperatingSystem.IsWindows()
+            ? dir.WriteExecutable("codex.cmd", """
+                @echo off
+                if "%~1"=="--version" (
+                    echo codex-stub 0.0
+                    exit /b 0
+                )
+                if "%~1"=="login" exit /b 0
+                more >nul
+                echo {"type":"thread.started","thread_id":"stub-thread"}
+                echo {"type":"item.completed","item":{"type":"agent_message","text":"I am Jev, simulated by the Codex CLI stub. There is no fallback router."}}
+                exit /b 0
+                """)
+            : dir.WriteExecutable("codex", """
             #!/bin/sh
             set -e
             if [ "$1" = "--version" ]; then
