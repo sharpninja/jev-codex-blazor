@@ -131,18 +131,33 @@ public sealed class CliExecutableResolverTests
     public async Task Real_runner_starts_PATH_shim_the_way_a_terminal_would()
     {
         using var dir = new TempDir();
-        dir.WriteExecutable(
-            "cline",
-            """
-            #!/bin/sh
-            if [ "$1" = version ] || [ "$1" = --version ] || [ "$1" = -V ]; then
-              echo "cline 3.1.0"
-              exit 0
-            fi
-            echo "unexpected: $*"
-            exit 1
-            """);
-        var env = IsolatedUnix(dir.Path);
+        CliSearchEnvironment env;
+        if (OperatingSystem.IsWindows())
+        {
+            dir.Write(
+                "cline.cmd",
+                "@echo off\r\nif \"%~1\"==\"version\" goto version\r\n"
+                + "if \"%~1\"==\"--version\" goto version\r\n"
+                + "if \"%~1\"==\"-V\" goto version\r\n"
+                + "echo unexpected: %*\r\nexit /b 1\r\n"
+                + ":version\r\necho cline 3.1.0\r\nexit /b 0\r\n");
+            env = IsolatedWindows(dir.Path, ".CMD");
+        }
+        else
+        {
+            dir.WriteExecutable(
+                "cline",
+                """
+                #!/bin/sh
+                if [ "$1" = version ] || [ "$1" = --version ] || [ "$1" = -V ]; then
+                  echo "cline 3.1.0"
+                  exit 0
+                fi
+                echo "unexpected: $*"
+                exit 1
+                """);
+            env = IsolatedUnix(dir.Path);
+        }
         var runner = new CliProcessRunner(env);
         var strategy = new ClineCodingStrategy(
             Options.Create(new ClineCliOptions { ExecutablePath = "cline" }),
