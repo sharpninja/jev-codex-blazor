@@ -1,8 +1,6 @@
-using Jev.Core.Agent;
 using Jev.Core.Persona;
 using Jev.Core.Runtime;
-using Jev.Core.Tools;
-using Microsoft.Agents.AI;
+using Jev.Core.Simulation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Jev.Workers;
@@ -17,25 +15,11 @@ public static class JevServiceCollectionExtensions
 
         services.AddOptions<JevAgentOptions>()
             .Bind(configuration.GetSection(JevAgentOptions.SectionName));
-        services.AddOptions<OpenAIOptions>()
-            .Bind(configuration.GetSection(OpenAIOptions.SectionName))
-            .PostConfigure(options =>
-            {
-                options.ApiKey ??= Environment.GetEnvironmentVariable("OPENAI_API_KEY");
-                var model = Environment.GetEnvironmentVariable("OPENAI_MODEL");
-                if (!string.IsNullOrWhiteSpace(model))
-                {
-                    options.Model = model;
-                }
-            });
 
         services.AddSingleton<JevPersona>();
         services.AddScoped<IJevRunStatus, JevRunStatus>();
         services.AddScoped<ICliTranscript, CliTranscript>();
-        services.AddScoped<JevCodingTools>();
-        services.AddScoped<JevAgentFactory>();
-        services.AddScoped(sp => sp.GetRequiredService<JevAgentFactory>().Create());
-        services.AddScoped(sp => sp.GetRequiredService<JevAgentHandle>().Agent);
+        services.AddScoped<JevCliSimulator>();
         return services;
     }
 }

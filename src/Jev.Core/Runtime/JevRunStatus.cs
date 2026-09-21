@@ -11,7 +11,7 @@ public sealed class JevRunStatus : IJevRunStatus
 
     public string? Detail { get; private set; }
 
-    public string Orchestration { get; private set; } = "unknown";
+    public string Simulator { get; private set; } = "unknown";
 
     public string ActiveStrategy { get; private set; } = "Codex";
 
@@ -65,7 +65,7 @@ public sealed class JevRunStatus : IJevRunStatus
         }
     }
 
-    public void SetOrchestration(string orchestration) => Orchestration = orchestration;
+    public void SetSimulator(string simulator) => Simulator = simulator;
 
     public void SetActiveStrategy(string strategy) => ActiveStrategy = strategy;
 

@@ -10,7 +10,7 @@ public interface IJevRunStatus
 
     IReadOnlyList<CodingProgress> WorkerEvents { get; }
 
-    string Orchestration { get; }
+    string Simulator { get; }
 
     string ActiveStrategy { get; }
 
@@ -26,7 +26,7 @@ public interface IJevRunStatus
 
     void ReportWorker(CodingProgress progress);
 
-    void SetOrchestration(string orchestration);
+    void SetSimulator(string simulator);
 
     void SetActiveStrategy(string strategy);
 
