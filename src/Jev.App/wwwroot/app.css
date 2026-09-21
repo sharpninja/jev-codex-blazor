@@ -25,6 +25,9 @@ html, body {
     max-height: 100dvh;
     display: flex;
     flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    overscroll-behavior: none;
     background: radial-gradient(1200px 600px at 10% -10%, #152033, transparent), var(--bg);
     color: var(--text);
 }
@@ -33,8 +36,9 @@ html, body {
  * Height chain: body → #app/app/.shell → .app.
  * Photino (Windows/Linux) and MAUI historically loaded only this file, so
  * .shell sizing lives here rather than only in MainLayout.razor.css.
- * Do not overflow:hidden these wrappers; that clips the composer when a column
- * (the rail) is taller than the window.
+ * Do not overflow:hidden .shell/.app/.stage — that clipped the composer when
+ * the rail's min-content sized an implicit auto row past the viewport.
+ * Document scroll is locked on html/body only.
  */
 #app, app, .shell {
     display: flex;
