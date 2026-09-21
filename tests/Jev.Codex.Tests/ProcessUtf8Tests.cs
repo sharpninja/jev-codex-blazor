@@ -127,11 +127,15 @@ internal sealed class TempDir : IDisposable
     public string WriteExecutable(string name, string contents)
     {
         var file = Write(name, contents);
-        File.SetUnixFileMode(
-            file,
-            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
-            | UnixFileMode.GroupRead | UnixFileMode.GroupExecute
-            | UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(
+                file,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
+                | UnixFileMode.GroupRead | UnixFileMode.GroupExecute
+                | UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
+        }
+
         return file;
     }
 
