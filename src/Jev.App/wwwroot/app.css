@@ -20,20 +20,29 @@
 html, body {
     margin: 0;
     height: 100%;
-    max-height: 100%;
     height: 100dvh;
+    max-height: 100%;
     max-height: 100dvh;
-    overflow: hidden;
+    display: flex;
+    flex-direction: column;
     background: radial-gradient(1200px 600px at 10% -10%, #152033, transparent), var(--bg);
     color: var(--text);
 }
 
-/* WASM / MAUI (#app) and Photino (<app>) hosts wrap the shared layout. */
-#app, app {
-    display: block;
-    height: 100%;
+/*
+ * Height chain: body → #app/app/.shell → .app.
+ * Photino (Windows/Linux) and MAUI historically loaded only this file, so
+ * .shell sizing lives here rather than only in MainLayout.razor.css.
+ * Do not overflow:hidden these wrappers; that clips the composer when a column
+ * (the rail) is taller than the window.
+ */
+#app, app, .shell {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
     min-height: 0;
-    overflow: hidden;
+    height: 100%;
+    width: 100%;
 }
 
 button, textarea {
@@ -43,10 +52,13 @@ button, textarea {
 .app {
     display: grid;
     grid-template-columns: 300px minmax(0, 1fr);
-    height: 100%;
-    max-height: 100%;
+    /* Implicit auto rows size to the sidebar min-content and push the composer off-screen. */
+    grid-template-rows: minmax(0, 1fr);
+    flex: 1 1 auto;
     min-height: 0;
-    overflow: hidden;
+    height: 100%;
+    width: 100%;
+    align-content: stretch;
 }
 
 .app.with-cli {
@@ -60,6 +72,7 @@ button, textarea {
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
+    min-width: 0;
     min-height: 0;
     overflow: auto;
     overscroll-behavior: contain;
@@ -181,12 +194,12 @@ button, textarea {
 }
 
 .stage {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
     min-width: 0;
     min-height: 0;
     height: 100%;
-    overflow: hidden;
 }
 
 .status-bar {
@@ -231,7 +244,6 @@ button, textarea {
 .pill.error { color: var(--error); border-color: color-mix(in srgb, var(--error) 50%, var(--line)); }
 
 .transcript {
-    flex: 1 1 auto;
     min-height: 0;
     overflow: auto;
     overscroll-behavior: contain;
@@ -301,7 +313,6 @@ button, textarea {
     min-width: 0;
     min-height: 0;
     height: 100%;
-    overflow: hidden;
     border-left: 1px solid var(--line);
     background: color-mix(in srgb, var(--bg-rail) 88%, transparent);
 }
@@ -395,7 +406,7 @@ button, textarea {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 0.7rem;
-    flex: 0 0 auto;
+    align-self: stretch;
     padding: 0.9rem 1.4rem calc(1.2rem + env(safe-area-inset-bottom, 0px));
     border-top: 1px solid var(--line);
     background: color-mix(in srgb, var(--bg) 92%, #0e1116);
@@ -455,7 +466,7 @@ button, textarea {
 @media (max-width: 860px) {
     .app, .app.with-cli {
         grid-template-columns: 1fr;
-        grid-template-rows: minmax(0, min-content) minmax(16rem, 1fr);
+        grid-template-rows: minmax(0, min-content) minmax(0, 1fr);
     }
     .rail {
         border-right: 0;
