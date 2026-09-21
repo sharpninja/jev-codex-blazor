@@ -31,8 +31,8 @@ html, body {
 
 /*
  * Height chain: body → #app/app/.shell → .app.
- * Photino (Windows/Linux) and MAUI load only this file — they do not include
- * CSS-isolation bundles — so .shell sizing lives here, not in MainLayout.razor.css.
+ * Photino (Windows/Linux) and MAUI historically loaded only this file, so
+ * .shell sizing lives here rather than only in MainLayout.razor.css.
  * Do not overflow:hidden these wrappers; that clips the composer when a column
  * (the rail) is taller than the window.
  */
