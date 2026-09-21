@@ -16,4 +16,10 @@ public interface ICliTranscript
     void Append(CodingProgress progress);
 
     void Clear();
+
+    /// <summary>
+    /// Formats currently stored lines the way the CLI drawer shows them
+    /// (already-redacted channel + text), for a one-click clipboard copy.
+    /// </summary>
+    string FormatForClipboard();
 }

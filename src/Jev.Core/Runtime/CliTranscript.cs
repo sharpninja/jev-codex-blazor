@@ -70,4 +70,16 @@ public sealed class CliTranscript : ICliTranscript
 
         Changed?.Invoke(this, EventArgs.Empty);
     }
+
+    public string FormatForClipboard()
+    {
+        var lines = Lines;
+        if (lines.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        return string.Join('\n', lines.Select(static line =>
+            $"{line.Channel.ToString().ToLowerInvariant()} {line.Text}"));
+    }
 }
