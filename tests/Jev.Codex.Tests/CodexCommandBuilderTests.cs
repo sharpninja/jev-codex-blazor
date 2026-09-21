@@ -21,14 +21,32 @@ public sealed class CodexCommandBuilderTests
 
         Assert.Equal(
             [
+                "--ask-for-approval", "never",
                 "exec", "--json", "--color", "never",
                 "--sandbox", "workspace-write",
-                "--ask-for-approval", "never",
                 "--skip-git-repo-check",
                 "--cd", "/tmp/workspace",
                 "-"
             ],
             args);
+    }
+
+    [Fact]
+    public void BuildExecArguments_omits_approval_flag_when_unset()
+    {
+        var builder = new CodexCommandBuilder(new CodexCliOptions
+        {
+            AskForApproval = " ",
+            SkipGitRepoCheck = false,
+            UseJsonEvents = false
+        });
+
+        var args = builder.BuildExecArguments(
+            new CodexExecRequest { Prompt = "hello" },
+            "/work");
+
+        Assert.Equal("exec", args[0]);
+        Assert.DoesNotContain("--ask-for-approval", args);
     }
 
     [Fact]

@@ -10,7 +10,10 @@ public sealed class CodexCliOptions
     /// <summary>read-only | workspace-write | danger-full-access</summary>
     public string DefaultSandbox { get; set; } = "workspace-write";
 
-    /// <summary>untrusted | on-request | never. Non-interactive runs should use never.</summary>
+    /// <summary>
+    /// untrusted | on-request | never. Non-interactive runs should use never.
+    /// Emitted as a global flag before <c>exec</c> (Codex rejects it after the subcommand).
+    /// </summary>
     public string AskForApproval { get; set; } = "never";
 
     public bool SkipGitRepoCheck { get; set; } = true;
