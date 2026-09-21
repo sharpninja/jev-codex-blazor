@@ -4,7 +4,18 @@ public sealed class CodexCommandBuilder(CodexCliOptions options)
 {
     public IReadOnlyList<string> BuildExecArguments(CodexExecRequest request, string workingDirectory)
     {
-        var args = new List<string> { "exec" };
+        var args = new List<string>();
+
+        // `--ask-for-approval` is a global Codex flag and must appear before `exec`.
+        // After `exec` the CLI (0.155+) rejects it: "unexpected argument '--ask-for-approval'".
+        // https://github.com/openai/codex/issues/26602
+        if (!string.IsNullOrWhiteSpace(options.AskForApproval))
+        {
+            args.Add("--ask-for-approval");
+            args.Add(options.AskForApproval);
+        }
+
+        args.Add("exec");
 
         if (options.UseJsonEvents)
         {
@@ -19,12 +30,6 @@ public sealed class CodexCommandBuilder(CodexCliOptions options)
             options.AllowDangerousSandbox);
         args.Add("--sandbox");
         args.Add(sandbox);
-
-        if (!string.IsNullOrWhiteSpace(options.AskForApproval))
-        {
-            args.Add("--ask-for-approval");
-            args.Add(options.AskForApproval);
-        }
 
         if (options.SkipGitRepoCheck)
         {
